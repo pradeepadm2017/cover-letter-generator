@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proxy Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-container { max-width: 800px; margin: 0 auto; }
+        .result { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #fee; border-left: 4px solid #f56565; }
+        .success { background: #f0fff4; border-left: 4px solid #68d391; }
+        button { padding: 10px 20px; margin: 5px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #005a9e; }
+        input { padding: 8px; margin: 5px; width: 400px; border: 1px solid #ccc; border-radius: 4px; }
+        pre { white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Proxy API Test</h1>
+
+        <div>
+            <input type="url" id="testUrl" placeholder="Enter URL to test..." value="https://api.github.com/users/octocat">
+            <button onclick="testProxy()">Test Proxy</button>
+            <button onclick="testDirectFetch()">Test Direct Fetch (should fail)</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Copy the proxy function from your main script
+        async function fetchWithProxy(url, options = {}) {
+            try {
+                const proxyUrl = '/api/proxy';
+                const response = await fetch(proxyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        method: options.method || 'GET',
+                        headers: options.headers || {}
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                return {
+                    ok: true,
+                    data: result.data,
+                    contentType: result.contentType,
+                    text: () => Promise.resolve(result.data),
+                    json: () => Promise.resolve(typeof result.data === 'string' ? JSON.parse(result.data) : result.data)
+                };
+            } catch (error) {
+                console.error('Proxy fetch error:', error);
+                throw error;
+            }
+        }
+
+        function addResult(title, content, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${content}</pre>
+            `;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        async function testProxy() {
+            const url = document.getElementById('testUrl').value;
+            if (!url) {
+                addResult('Error', 'Please enter a URL', true);
+                return;
+            }
+
+            try {
+                addResult('Testing...', `Fetching ${url} via proxy...`);
+                const response = await fetchWithProxy(url);
+                const data = await response.text();
+                const dataStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+                addResult('Proxy Success ✅', `URL: ${url}\nContent Type: ${response.contentType}\nData: ${dataStr.substring(0, 500)}${dataStr.length > 500 ? '...' : ''}`);
+            } catch (error) {
+                addResult('Proxy Error ❌', `URL: ${url}\nError: ${error.message}`, true);
+            }
+        }
+
+        async function testDirectFetch() {
+            const url = document.getElementById('testUrl').value;
+            if (!url) {
+                addResult('Error', 'Please enter a URL', true);
+                return;
+            }
+
+            try {
+                addResult('Testing...', `Fetching ${url} directly (should fail due to CORS)...`);
+                const response = await fetch(url);
+                const data = await response.text();
+                addResult('Direct Success ✅', `URL: ${url}\nData: ${data.substring(0, 500)}${data.length > 500 ? '...' : ''}}`);
+            } catch (error) {
+                addResult('Direct Fetch Error ❌ (Expected)', `URL: ${url}\nError: ${error.message}\nThis is expected due to CORS restrictions`, true);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cover Letter Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="header-logo">
+                    <img src="batchapply_logo_1.svg" alt="BatchApply Logo" class="logo">
+                </div>
+                <div class="header-text">
+                    <h1>Cover Letter Generator</h1>
+                    <p>Generate personalized cover letters using your resume and job descriptions</p>
+                </div>
+                <div class="user-menu">
+                    <div class="user-info">
+                        <span id="user-email">Loading...</span>
+                        <span id="user-tier" class="tier-badge">Free</span>
+                    </div>
+                    <div class="user-actions">
+                        <button type="button" class="btn-secondary" onclick="toggleSubscriptionModal()">Manage Subscription</button>
+                        <button type="button" class="btn-logout" onclick="logout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="form-section">
+                <h2>Your Resume</h2>
+                <div class="resume-input-options">
+                    <div class="option-tabs">
+                        <button type="button" class="tab-btn active" onclick="switchResumeTab('text')">
+                            Paste Text
+                        </button>
+                        <button type="button" class="tab-btn" onclick="switchResumeTab('file')">
+                            Upload File
+                        </button>
+                    </div>
+                    <div id="text-resume-tab" class="resume-tab active">
+                        <textarea
+                            id="resume"
+                            placeholder="Paste your resume here..."
+                            rows="10"
+                        ></textarea>
+                    </div>
+                    <div id="file-resume-tab" class="resume-tab hidden">
+                        <div class="file-upload-area">
+                            <input
+                                type="file"
+                                id="resume-file"
+                                accept=".pdf,.doc,.docx,.txt"
+                                style="display: none;"
+                                onchange="handleResumeFileUpload(this)"
+                            >
+                            <label for="resume-file" class="file-upload-label">
+                                <span class="upload-icon">📎</span>
+                                <span id="file-name">Click to upload or drag & drop</span>
+                                <span class="file-types">Supports: PDF, DOC, DOCX, TXT</span>
+                            </label>
+                            <div id="file-status" class="file-status hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Job URLs</h2>
+                <div id="job-urls-container">
+                    <div class="job-url-input" data-index="0">
+                        <div class="url-input-wrapper">
+                            <input
+                                type="url"
+                                placeholder="Enter job posting URL..."
+                                class="job-url"
+                            >
+                            <span class="url-status"></span>
+                        </div>
+                        <button type="button" class="remove-btn" onclick="removeJobUrl(this)">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+                <button type="button" id="add-url-btn" onclick="addJobUrl()">
+                    + Add Another Job URL
+                </button>
+            </div>
+
+            <div class="form-section generate-section">
+                <button
+                    type="button"
+                    id="generate-all-btn"
+                    onclick="generateAllCoverLetters()"
+                    disabled
+                >
+                    Generate Cover Letters
+                </button>
+                <div id="cover-letters-container">
+                    <!-- Status messages will appear here -->
+                </div>
+            </div>
+        </main>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+
+        <div id="error-message" class="error-message hidden"></div>
+    </div>
+
+    <!-- Subscription Management Modal -->
+    <div id="subscription-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Manage Subscription</h2>
+                <button type="button" class="modal-close" onclick="toggleSubscriptionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="subscription-info">
+                    <div class="info-row">
+                        <span class="label">Current Plan:</span>
+                        <span id="modal-tier" class="value tier-badge">Free</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Email:</span>
+                        <span id="modal-email" class="value">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Usage This Month:</span>
+                        <span id="modal-usage" class="value">0 / 3</span>
+                    </div>
+                </div>
+
+                <div class="subscription-plans">
+                    <h3>Available Plans</h3>
+                    <div class="plans-grid">
+                        <div class="plan-card" data-tier="free">
+                            <h4>Free</h4>
+                            <div class="price">$0<span>/month</span></div>
+                            <ul class="features">
+                                <li>3 cover letters per month</li>
+                                <li>AI-powered custom cover letters</li>
+                                <li>Basic templates</li>
+                                <li>Email support</li>
+                            </ul>
+                            <button type="button" class="btn-plan" onclick="changePlan('free')" disabled>Current Plan</button>
+                        </div>
+                        <div class="plan-card" data-tier="monthly">
+                            <h4>Monthly</h4>
+                            <div class="price">$7<span>/month</span></div>
+                            <ul class="features">
+                                <li>Unlimited cover letters</li>
+                                <li>AI-powered custom cover letters</li>
+                                <li>Premium templates</li>
+                                <li>Priority support</li>
+                            </ul>
+                            <button type="button" class="btn-plan" onclick="changePlan('monthly')">Select Plan</button>
+                        </div>
+                        <div class="plan-card featured" data-tier="quarterly">
+                            <div class="badge">Best Value</div>
+                            <h4>Quarterly</h4>
+                            <div class="price">$15<span>/3 months</span></div>
+                            <div class="savings">Save 29%</div>
+                            <ul class="features">
+                                <li>Unlimited cover letters</li>
+                                <li>AI-powered custom cover letters</li>
+                                <li>Premium templates</li>
+                                <li>Priority support</li>
+                                <li>Resume optimization tips</li>
+                            </ul>
+                            <button type="button" class="btn-plan" onclick="changePlan('quarterly')">Select Plan</button>
+                        </div>
+                        <div class="plan-card" data-tier="annual">
+                            <div class="badge">Maximum Savings</div>
+                            <h4>Annual</h4>
+                            <div class="price">$30<span>/year</span></div>
+                            <div class="savings">Save 64%</div>
+                            <ul class="features">
+                                <li>Unlimited cover letters</li>
+                                <li>AI-powered custom cover letters</li>
+                                <li>Premium templates</li>
+                                <li>Priority support</li>
+                                <li>Resume optimization tips</li>
+                            </ul>
+                            <button type="button" class="btn-plan" onclick="changePlan('annual')">Select Plan</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="cancel-section" class="cancel-section hidden">
+                    <h3>Cancel Subscription</h3>
+                    <p>Are you sure you want to cancel your subscription? You'll lose access to premium features at the end of your billing period.</p>
+                    <button type="button" class="btn-danger" onclick="cancelSubscription()">Cancel Subscription</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
