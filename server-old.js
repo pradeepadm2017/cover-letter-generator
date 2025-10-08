@@ -11,46 +11,70 @@ const { Document, Paragraph, TextRun, Packer } = require('docx');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
-const supabase = require('./supabase-client');
-const { userOps, usageOps } = require('./supabase-db');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const session = require('express-session');
+const { userOps, usageOps } = require('./database');
 
 const app = express();
 let PORT = process.env.PORT || 3000;
 
-// Middleware to verify Supabase session
-async function verifySupabaseSession(req, res, next) {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    req.user = null;
-    return next();
+// Session middleware (must be before passport)
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
+}));
 
-  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+// Configure Passport Google Strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.emails[0].value;
+      const providerId = profile.id;
+      let user = userOps.findByEmail(email);
 
-    if (error || !user) {
-      req.user = null;
-      return next();
+      if (!user) {
+        const userId = userOps.create(email, 'google', providerId);
+        user = userOps.findById(userId);
+      }
+
+      return done(null, user);
+    } catch (error) {
+      return done(error, null);
     }
-
-    // Get user profile from database
-    const profile = await userOps.findById(user.id);
-    req.user = { ...user, ...profile };
-    next();
-  } catch (error) {
-    console.error('Error verifying session:', error);
-    req.user = null;
-    next();
   }
-}
+));
+
+// Serialize and deserialize user
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser((id, done) => {
+  try {
+    const user = userOps.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
-app.use(verifySupabaseSession);
 
 // Configure multer for file uploads
 const upload = multer({
@@ -76,49 +100,43 @@ const openai = new OpenAI({
 
 // Authentication middleware
 function ensureAuthenticated(req, res, next) {
-  if (req.user && req.user.id) {
+  if (req.isAuthenticated()) {
     return next();
   }
-  res.status(401).json({ error: 'Unauthorized' });
+  res.redirect('/');
 }
 
-// Auth status endpoint
-app.get('/api/auth/session', async (req, res) => {
-  if (!req.user) {
-    return res.json({ user: null, session: null });
-  }
+// Google OAuth routes
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
 
-  try {
-    const usage = await usageOps.canGenerate(req.user.id);
-    res.json({
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        subscription_tier: req.user.subscription_tier || 'free'
-      },
-      session: { access_token: req.headers.authorization?.substring(7) },
-      usage
-    });
-  } catch (error) {
-    console.error('Error getting session:', error);
-    res.status(500).json({ error: 'Failed to get session' });
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/' }),
+  (req, res) => {
+    // Successful authentication, redirect to app
+    res.redirect('/app');
   }
-});
+);
 
-// Logout endpoint (for backwards compatibility)
 app.get('/auth/logout', (req, res) => {
-  res.redirect('/');
+  req.logout((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+    }
+    res.redirect('/');
+  });
 });
 
-// Legacy auth status endpoint (for backwards compatibility)
-app.get('/api/auth/status', async (req, res) => {
-  if (req.user) {
-    const usage = await usageOps.canGenerate(req.user.id);
+// Check if user is logged in
+app.get('/api/auth/status', (req, res) => {
+  if (req.isAuthenticated()) {
+    const usage = usageOps.canGenerate(req.user.id);
     res.json({
       authenticated: true,
       user: {
         email: req.user.email,
-        tier: req.user.subscription_tier || 'free'
+        tier: req.user.subscription_tier
       },
       usage: usage
     });
@@ -128,7 +146,7 @@ app.get('/api/auth/status', async (req, res) => {
 });
 
 // Update subscription plan
-app.post('/api/subscription/change', ensureAuthenticated, async (req, res) => {
+app.post('/api/subscription/change', ensureAuthenticated, (req, res) => {
   try {
     const { tier } = req.body;
 
@@ -140,22 +158,19 @@ app.post('/api/subscription/change', ensureAuthenticated, async (req, res) => {
     if (tier !== 'free') {
       const now = new Date();
       if (tier === 'monthly') {
-        now.setMonth(now.getMonth() + 1);
-        expiresAt = now.toISOString();
+        expiresAt = Math.floor(now.setMonth(now.getMonth() + 1) / 1000);
       } else if (tier === 'quarterly') {
-        now.setMonth(now.getMonth() + 3);
-        expiresAt = now.toISOString();
+        expiresAt = Math.floor(now.setMonth(now.getMonth() + 3) / 1000);
       } else if (tier === 'annual') {
-        now.setFullYear(now.getFullYear() + 1);
-        expiresAt = now.toISOString();
+        expiresAt = Math.floor(now.setFullYear(now.getFullYear() + 1) / 1000);
       }
     }
 
-    await userOps.updateSubscription(req.user.id, tier, expiresAt);
+    userOps.updateSubscription(req.user.id, tier, expiresAt);
 
     // Return updated user info
-    const updatedUser = await userOps.findById(req.user.id);
-    const usage = await usageOps.canGenerate(req.user.id);
+    const updatedUser = userOps.findById(req.user.id);
+    const usage = usageOps.canGenerate(req.user.id);
 
     res.json({
       success: true,
@@ -172,13 +187,13 @@ app.post('/api/subscription/change', ensureAuthenticated, async (req, res) => {
 });
 
 // Cancel subscription
-app.post('/api/subscription/cancel', ensureAuthenticated, async (req, res) => {
+app.post('/api/subscription/cancel', ensureAuthenticated, (req, res) => {
   try {
-    await userOps.updateSubscription(req.user.id, 'free', null);
+    userOps.updateSubscription(req.user.id, 'free', null);
 
     // Return updated user info
-    const updatedUser = await userOps.findById(req.user.id);
-    const usage = await usageOps.canGenerate(req.user.id);
+    const updatedUser = userOps.findById(req.user.id);
+    const usage = usageOps.canGenerate(req.user.id);
 
     res.json({
       success: true,
@@ -199,8 +214,8 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Route to serve the main app (client-side handles auth)
-app.get('/app', (req, res) => {
+// Route to serve the main app (protected)
+app.get('/app', ensureAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
@@ -541,7 +556,7 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
     }
 
     // Check usage limits
-    const usageCheck = await usageOps.canGenerate(req.user.id);
+    const usageCheck = usageOps.canGenerate(req.user.id);
     if (!usageCheck.allowed) {
       return res.status(403).json({
         error: 'Usage limit reached',
@@ -1031,7 +1046,7 @@ Create a highly targeted cover letter that could only work for this specific job
         });
 
         // Increment usage counter for successful generation
-        await usageOps.incrementUsage(req.user.id);
+        usageOps.incrementUsage(req.user.id);
 
       } catch (error) {
         console.error(`Error processing job URL ${jobUrl}:`, error);

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BatchApply - AI-Powered Cover Letter Generator</title>
     <link rel="stylesheet" href="landing-styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <nav class="navbar">
@@ -15,7 +16,7 @@
             <div class="nav-links">
                 <a href="#features">Features</a>
                 <a href="#pricing">Pricing</a>
-                <a href="/auth/google" class="btn-login">Login</a>
+                <button onclick="signInWithGoogle()" class="btn-login">Login</button>
             </div>
         </div>
     </nav>
@@ -25,7 +26,7 @@
             <h1>Generate Perfect Cover Letters in Seconds</h1>
             <p class="hero-subtitle">AI-powered cover letters tailored to each job posting. Save hours of work and apply to more jobs.</p>
             <div class="hero-cta">
-                <a href="/auth/google" class="btn-primary btn-large">
+                <button onclick="signInWithGoogle()" class="btn-primary btn-large">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -33,7 +34,7 @@
                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                     </svg>
                     Get Started with Google
-                </a>
+                </button>
             </div>
             <p class="hero-note">Start free - No credit card required</p>
         </div>
@@ -96,7 +97,7 @@
                         <li>✓ Basic templates</li>
                         <li>✓ Email support</li>
                     </ul>
-                    <a href="/auth/google" class="btn-pricing">Get Started Free</a>
+                    <button onclick="signInWithGoogle()" class="btn-pricing">Get Started Free</button>
                 </div>
 
                 <div class="pricing-card">
@@ -113,7 +114,7 @@
                         <li>✓ Premium templates</li>
                         <li>✓ Priority support</li>
                     </ul>
-                    <a href="/auth/google" class="btn-pricing">Start Monthly</a>
+                    <button onclick="signInWithGoogle()" class="btn-pricing">Start Monthly</button>
                 </div>
 
                 <div class="pricing-card featured">
@@ -133,7 +134,7 @@
                         <li>✓ Priority support</li>
                         <li>✓ Resume optimization tips</li>
                     </ul>
-                    <a href="/auth/google" class="btn-pricing btn-featured">Start Quarterly</a>
+                    <button onclick="signInWithGoogle()" class="btn-pricing btn-featured">Start Quarterly</button>
                 </div>
 
                 <div class="pricing-card">
@@ -153,7 +154,7 @@
                         <li>✓ Priority support</li>
                         <li>✓ Resume optimization tips</li>
                     </ul>
-                    <a href="/auth/google" class="btn-pricing">Start Annual</a>
+                    <button onclick="signInWithGoogle()" class="btn-pricing">Start Annual</button>
                 </div>
             </div>
         </div>
@@ -164,5 +165,117 @@
             <p>&copy; 2025 BatchApply. All rights reserved.</p>
         </div>
     </footer>
+
+    <script>
+        // Initialize Supabase
+        const SUPABASE_URL = 'https://igliqzsokxeknkiozkrj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGlxenNva3hla25raW96a3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MjYzNjcsImV4cCI6MjA3NTQwMjM2N30.NasThZulDuYEbRZiVsIXTMt2dLWRwtveY6_GPVULv98';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true
+            }
+        });
+
+        // Check if user is already logged in
+        async function checkAuth() {
+            // Check if we just logged out
+            if (justLoggedOut) {
+                console.log('Just logged out, skipping auth check permanently');
+                return;
+            }
+
+            // Check if we're in logout mode via URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('logout') === 'true') {
+                console.log('Logout parameter detected, skipping auth check');
+                return;
+            }
+
+            const { data: { session } } = await supabase.auth.getSession();
+            console.log('checkAuth - Session:', session ? 'EXISTS' : 'NULL');
+            if (session) {
+                console.log('Session found, redirecting to app');
+                window.location.href = '/app';
+            } else {
+                console.log('No session, staying on landing page');
+            }
+        }
+
+        // Sign in with Google
+        async function signInWithGoogle() {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin + '/app',
+                    queryParams: {
+                        prompt: 'select_account'
+                    }
+                }
+            });
+
+            if (error) {
+                console.error('Error signing in:', error);
+                alert('Failed to sign in with Google. Please try again.');
+            }
+        }
+
+        // Global flag to prevent auth checks after logout
+        let justLoggedOut = false;
+
+        // Check auth on page load (only if not in middle of logout)
+        (async function() {
+            // Check for logout URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const isLoggingOut = urlParams.get('logout') === 'true';
+
+            console.log('=== LANDING PAGE LOADED ===');
+            console.log('Current URL:', window.location.href);
+            console.log('Logout parameter:', isLoggingOut);
+
+            if (isLoggingOut) {
+                // Set flag to prevent any future auth checks
+                justLoggedOut = true;
+
+                // Clear all storage and ensure logout is complete
+                console.log('Logout detected, clearing all storage');
+
+                // Clear all storage FIRST before signOut
+                localStorage.clear();
+                sessionStorage.clear();
+
+                // Clear any remaining Supabase keys manually
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('sb-')) {
+                        localStorage.removeItem(key);
+                    }
+                }
+
+                // Sign out from Supabase
+                console.log('Calling supabase.auth.signOut()...');
+                await supabase.auth.signOut({ scope: 'local' });
+                console.log('SignOut completed');
+
+                // Wait longer to ensure everything is cleared
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Check if session still exists
+                const { data: { session } } = await supabase.auth.getSession();
+                console.log('Session after signOut:', session ? 'STILL EXISTS!' : 'NULL (good)');
+
+                // Remove logout parameter from URL WITHOUT triggering navigation
+                window.history.replaceState({}, document.title, '/');
+
+                console.log('Logout completed, all storage cleared, staying on landing page');
+                console.log('justLoggedOut flag set to:', justLoggedOut);
+            } else {
+                console.log('No logout parameter, calling checkAuth()...');
+                await checkAuth();
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -1,5 +1,139 @@
-// Global variable to store extracted resume text
+// Initialize Supabase
+const SUPABASE_URL = 'https://igliqzsokxeknkiozkrj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGlxenNva3hla25raW96a3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MjYzNjcsImV4cCI6MjA3NTQwMjM2N30.NasThZulDuYEbRZiVsIXTMt2dLWRwtveY6_GPVULv98';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Global variables
 let resumeText = '';
+let currentSession = null;
+let currentUser = null;
+let isLoggingOut = false;
+
+// Helper function to get auth headers
+async function getAuthHeaders() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        window.location.href = '/';
+        throw new Error('Not authenticated');
+    }
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+    };
+}
+
+// Initialize auth on page load
+async function initAuth() {
+    if (isLoggingOut) {
+        console.log('Logout in progress, skipping auth check');
+        return false;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+        console.log('No session found, redirecting to home');
+        window.location.href = '/';
+        return false;
+    }
+
+    currentSession = session;
+    currentUser = session.user;
+
+    console.log('Session found for user:', currentUser.email);
+
+    // Update UI with user info
+    await loadUserInfo();
+    return true;
+}
+
+// Load user information
+async function loadUserInfo() {
+    try {
+        // Use current session instead of fetching again
+        if (!currentSession) {
+            console.error('No current session available');
+            return;
+        }
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession.access_token}`
+        };
+
+        const response = await fetch('/api/auth/status', {
+            headers
+        });
+
+        const data = await response.json();
+
+        if (data.authenticated) {
+            document.getElementById('user-email').textContent = data.user.email;
+            document.getElementById('user-tier').textContent = data.user.tier.charAt(0).toUpperCase() + data.user.tier.slice(1);
+
+            // Update tier badge color
+            const tierBadge = document.getElementById('user-tier');
+            tierBadge.className = 'tier-badge';
+            if (data.user.tier !== 'free') {
+                tierBadge.classList.add('tier-paid');
+            }
+        } else {
+            console.error('User not authenticated on backend');
+            // Don't redirect here - session exists on frontend
+        }
+    } catch (error) {
+        console.error('Error loading user info:', error);
+        // Don't redirect on error
+    }
+}
+
+// Logout function
+async function logout() {
+    try {
+        console.log('=== LOGOUT CLICKED ===');
+        console.log('Starting logout process...');
+        isLoggingOut = true;
+
+        // Sign out with scope: 'local' to clear all local session data
+        console.log('Calling supabase.auth.signOut()...');
+        const { error } = await supabase.auth.signOut({ scope: 'local' });
+        if (error) {
+            console.error('Logout error:', error);
+        } else {
+            console.log('SignOut successful');
+        }
+
+        // Manually clear all Supabase storage keys
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('sb-')) {
+                keysToRemove.push(key);
+            }
+        }
+        console.log('Removing Supabase keys:', keysToRemove);
+        keysToRemove.forEach(key => {
+            localStorage.removeItem(key);
+        });
+
+        // Clear all storage
+        console.log('Clearing all storage...');
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // Wait to ensure signOut fully completes
+        console.log('Waiting 300ms...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Force redirect with logout parameter
+        console.log('Redirecting to /?logout=true');
+        window.location.replace('/?logout=true');
+    } catch (error) {
+        console.error('Logout failed:', error);
+        window.location.replace('/?logout=true');
+    }
+}
 
 // Tab switching function
 function switchResumeTab(tabType) {
@@ -241,11 +375,10 @@ async function generateAllCoverLetters() {
 
     try {
         console.log('📡 FRONTEND: Sending fetch request to /api/generate-cover-letters');
+        const headers = await getAuthHeaders();
         const response = await fetch('/api/generate-cover-letters', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
                 resume: resume,
                 jobUrls: jobUrls
@@ -330,18 +463,20 @@ let currentUserData = null;
 
 async function loadUserData() {
     try {
-        const response = await fetch('/api/auth/status');
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/auth/status', { headers });
         const data = await response.json();
 
         if (data.authenticated) {
             currentUserData = data;
             updateUserUI(data);
         } else {
-            window.location.href = '/';
+            console.error('Not authenticated, staying on page');
+            // Don't redirect - user has session, backend issue
         }
     } catch (error) {
         console.error('Error loading user data:', error);
-        showError('Failed to load user information');
+        // Don't show error or redirect
     }
 }
 
@@ -395,9 +530,7 @@ function formatTierName(tier) {
     return names[tier] || tier;
 }
 
-function logout() {
-    window.location.href = '/auth/logout';
-}
+// Logout function is defined earlier in the file (line 92)
 
 function toggleSubscriptionModal() {
     const modal = document.getElementById('subscription-modal');
@@ -423,11 +556,10 @@ async function changePlan(tier) {
     if (confirm('Are you sure you want to downgrade to the Free plan? You will lose access to premium features.')) {
         try {
             showLoading();
+            const headers = await getAuthHeaders();
             const response = await fetch('/api/subscription/change', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers,
                 body: JSON.stringify({ tier })
             });
 
@@ -500,7 +632,8 @@ document.addEventListener('input', function(e) {
 });
 
 // Initialize the page
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    await initAuth(); // Initialize Supabase auth first
     updateGenerateButtonState();
     loadUserData();
 });
