@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" width="800" height="280">
+  <!-- Background -->
+  <rect width="800" height="280" fill="white"/>
+  
+  <!-- Icon: Document with lightning bolt -->
+  <g transform="translate(40, 40)">
+    <!-- Document -->
+    <rect x="0" y="0" width="160" height="200" rx="8" fill="#1e3a5f" opacity="0.08"/>
+    <rect x="0" y="0" width="160" height="200" rx="8" fill="none" stroke="#1e3a5f" stroke-width="5"/>
+    
+    <!-- Document lines -->
+    <line x1="25" y1="45" x2="95" y2="45" stroke="#1e3a5f" stroke-width="3" opacity="0.3"/>
+    <line x1="25" y1="70" x2="135" y2="70" stroke="#1e3a5f" stroke-width="3" opacity="0.3"/>
+    <line x1="25" y1="95" x2="135" y2="95" stroke="#1e3a5f" stroke-width="3" opacity="0.3"/>
+    <line x1="25" y1="120" x2="115" y2="120" stroke="#1e3a5f" stroke-width="3" opacity="0.3"/>
+    
+    <!-- Lightning bolt overlay -->
+    <g transform="translate(45, 30)">
+      <path d="M35 0 L18 60 L32 60 L26 105 L62 45 L48 45 L53 0 Z" 
+            fill="#be123c" 
+            stroke="#9f1239" 
+            stroke-width="3"/>
+    </g>
+  </g>
+  
+  <!-- Text section -->
+  <g transform="translate(240, 90)">
+    <!-- FastCoverLetters.com -->
+    <g>
+      <!-- "Fast" in burgundy -->
+      <text x="0" y="0" font-family="Arial, sans-serif" font-size="56" font-weight="700" fill="#be123c">
+        Fast
+      </text>
+      
+      <!-- "CoverLetters.com" in navy -->
+      <text x="110" y="0" font-family="Arial, sans-serif" font-size="56" font-weight="700" fill="#1e3a5f">
+        CoverLetters.com
+      </text>
+    </g>
+    
+    <!-- Tagline in navy - center aligned -->
+    <text x="275" y="55" font-family="Arial, sans-serif" font-size="28" font-weight="400" fill="#1e3a5f" text-anchor="middle" letter-spacing="0.5">
+      Land the Interview. Skip the Writing.
+    </text>
+  </g>
+</svg>
