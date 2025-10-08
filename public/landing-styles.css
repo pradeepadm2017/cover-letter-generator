@@ -43,7 +43,14 @@ body {
     transition: transform 0.3s ease;
 }
 
-.nav-logo .logo:hover {
+.nav-logo .logo-full {
+    height: 120px;
+    width: auto;
+    transition: transform 0.3s ease;
+}
+
+.nav-logo .logo:hover,
+.nav-logo .logo-full:hover {
     transform: scale(1.02);
 }
 
