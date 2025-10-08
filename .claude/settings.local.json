@@ -24,7 +24,9 @@
       "Bash(gh repo create:*)",
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(vercel login:*)",
+      "Bash(vercel:*)"
     ],
     "deny": [],
     "ask": []
