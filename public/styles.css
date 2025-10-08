@@ -48,6 +48,11 @@ header {
     height: 90px;
 }
 
+.logo-full {
+    height: 120px;
+    width: auto;
+}
+
 .logo-text {
     display: flex;
     flex-direction: column;
