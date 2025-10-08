@@ -1109,16 +1109,22 @@ app.post('/api/download-cover-letter', (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT} (Auto-restart enabled)`);
-}).on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.log(`Port ${PORT} is busy, trying port ${PORT + 1}`);
-    PORT = PORT + 1;
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  } else {
-    console.error('Server error:', err);
-  }
-});
+// Only start server if not in Vercel serverless environment
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT} (Auto-restart enabled)`);
+  }).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`Port ${PORT} is busy, trying port ${PORT + 1}`);
+      PORT = PORT + 1;
+      app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    } else {
+      console.error('Server error:', err);
+    }
+  });
+}
+
+// Export for Vercel serverless
+module.exports = app;
