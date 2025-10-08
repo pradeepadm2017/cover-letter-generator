@@ -394,32 +394,21 @@ async function generateAllCoverLetters() {
 
         // Display results and update URL statuses
         data.results.forEach((result, index) => {
-            const coverLetterDiv = document.createElement('div');
-            coverLetterDiv.className = 'cover-letter';
-
             if (result.success) {
                 // Update URL status to success
                 updateUrlStatus(index, 'success', 'Cover letter generated successfully');
-
-                coverLetterDiv.innerHTML = `
-                    <h3>Cover Letter ${index + 1}</h3>
-                    <p id="status-${index}" style="color: #059669; font-size: 14px; margin-bottom: 10px;">
-                        ✅ Cover letter generated successfully - downloading...
-                    </p>
-                `;
 
                 // Auto-download the file
                 if (result.fileData) {
                     setTimeout(() => {
                         downloadFile(result.fileName, result.fileData);
-                        // Update status message after download
-                        const statusEl = document.getElementById(`status-${index}`);
-                        if (statusEl) {
-                            statusEl.textContent = `✅ Downloaded: ${result.fileName}`;
-                        }
                     }, 300 * (index + 1));
                 }
             } else {
+                // Only show error/fallback messages in the container
+                const coverLetterDiv = document.createElement('div');
+                coverLetterDiv.className = 'cover-letter';
+
                 // Check if this is a fallback case (failed to fetch job description)
                 if (result.usedFallback) {
                     // Update URL status to fallback/warning
@@ -445,9 +434,9 @@ async function generateAllCoverLetters() {
                         <p style="font-size: 12px; color: #666;">URL: ${result.jobUrl}</p>
                     `;
                 }
-            }
 
-            coverLettersContainer.appendChild(coverLetterDiv);
+                coverLettersContainer.appendChild(coverLetterDiv);
+            }
         });
 
         const successCount = data.results.filter(r => r.success).length;
