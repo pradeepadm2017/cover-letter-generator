@@ -403,14 +403,21 @@ async function generateAllCoverLetters() {
 
                 coverLetterDiv.innerHTML = `
                     <h3>Cover Letter ${index + 1}</h3>
-                    <p style="color: #059669; font-size: 14px; margin-bottom: 10px;">
+                    <p id="status-${index}" style="color: #059669; font-size: 14px; margin-bottom: 10px;">
                         ✅ Cover letter generated successfully - downloading...
                     </p>
                 `;
 
                 // Auto-download the file
                 if (result.fileData) {
-                    setTimeout(() => downloadFile(result.fileName, result.fileData), 300 * (index + 1));
+                    setTimeout(() => {
+                        downloadFile(result.fileName, result.fileData);
+                        // Update status message after download
+                        const statusEl = document.getElementById(`status-${index}`);
+                        if (statusEl) {
+                            statusEl.textContent = `✅ Downloaded: ${result.fileName}`;
+                        }
+                    }, 300 * (index + 1));
                 }
             } else {
                 // Check if this is a fallback case (failed to fetch job description)
