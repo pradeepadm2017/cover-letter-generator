@@ -23,6 +23,7 @@ async function verifySupabaseSession(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('No auth header or invalid format');
     req.user = null;
     return next();
   }
@@ -30,13 +31,22 @@ async function verifySupabaseSession(req, res, next) {
   const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
   try {
+    console.log('Verifying token with Supabase...');
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
-    if (error || !user) {
+    if (error) {
+      console.error('Supabase auth error:', error.message, error.status);
       req.user = null;
       return next();
     }
 
+    if (!user) {
+      console.log('No user found for token');
+      req.user = null;
+      return next();
+    }
+
+    console.log('User authenticated:', user.id, user.email);
     // Get user profile from database
     const profile = await userOps.findById(user.id);
     req.user = { ...user, ...profile };
