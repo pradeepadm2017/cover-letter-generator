@@ -560,7 +560,7 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
     if (!usageCheck.allowed) {
       return res.status(403).json({
         error: 'Usage limit reached',
-        message: 'You have reached your monthly limit of 3 free cover letters. Please upgrade to continue.',
+        message: 'You have reached your monthly limit of 30 free cover letters. Please upgrade to continue.',
         tier: usageCheck.tier,
         remaining: usageCheck.remaining
       });

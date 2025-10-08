@@ -151,10 +151,10 @@ const usageOps = {
       return { allowed: true, remaining: -1, tier: subscription.tier };
     }
 
-    // Free users get 3 per month
+    // Free users get 30 per month (temporarily increased for testing)
     const usage = await usageOps.getUsage(userId);
-    const allowed = usage < 3;
-    const remaining = Math.max(0, 3 - usage);
+    const allowed = usage < 30;
+    const remaining = Math.max(0, 30 - usage);
 
     return { allowed, remaining, tier: 'free', used: usage };
   }
