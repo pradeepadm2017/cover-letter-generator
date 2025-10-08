@@ -9,7 +9,8 @@ const fs = require('fs');
 const os = require('os');
 const { Document, Paragraph, TextRun, Packer } = require('docx');
 const multer = require('multer');
-const pdfParse = require('pdf-parse');
+// Lazy load pdf-parse to avoid canvas issues in serverless
+let pdfParse = null;
 const mammoth = require('mammoth');
 const supabase = require('./supabase-client');
 const { userOps, usageOps } = require('./supabase-db');
@@ -218,6 +219,10 @@ app.post('/api/upload-resume', upload.single('resume'), async (req, res) => {
     console.log(`📄 Processing uploaded file: ${file.originalname} (${fileExtension})`);
 
     if (fileExtension === '.pdf') {
+      // Lazy load pdf-parse only when needed (avoids canvas issues in serverless)
+      if (!pdfParse) {
+        pdfParse = require('pdf-parse');
+      }
       // Parse PDF
       const pdfData = await pdfParse(file.buffer);
       resumeText = pdfData.text;
