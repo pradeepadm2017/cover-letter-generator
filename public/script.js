@@ -404,9 +404,14 @@ async function generateAllCoverLetters() {
                 coverLetterDiv.innerHTML = `
                     <h3>Cover Letter ${index + 1}</h3>
                     <p style="color: #059669; font-size: 14px; margin-bottom: 10px;">
-                        ✅ Automatically saved to: ${result.filePath}
+                        ✅ Cover letter generated successfully - downloading...
                     </p>
                 `;
+
+                // Auto-download the file
+                if (result.fileData) {
+                    setTimeout(() => downloadFile(result.fileName, result.fileData), 300 * (index + 1));
+                }
             } else {
                 // Check if this is a fallback case (failed to fetch job description)
                 if (result.usedFallback) {
@@ -610,6 +615,34 @@ async function cancelSubscription() {
         showError('Failed to cancel subscription');
     } finally {
         hideLoading();
+    }
+}
+
+// Function to download file from base64 data
+function downloadFile(fileName, base64Data) {
+    try {
+        // Convert base64 to binary
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // Create blob and download
+        const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        console.log(`✅ Downloaded: ${fileName}`);
+    } catch (error) {
+        console.error('Error downloading file:', error);
+        showError('Failed to download file: ' + fileName);
     }
 }
 

@@ -835,8 +835,7 @@ Create a highly targeted cover letter that could only work for this specific job
         console.log('Cover letter content:', coverLetter);
         console.log('Cover letter length:', coverLetter ? coverLetter.length : 'null/undefined');
 
-        // Automatically save cover letter to Downloads folder as .docx
-        const downloadsPath = path.join(os.homedir(), 'Downloads');
+        // Create filename for download
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 16); // Shorter timestamp
 
         // Create filename in format: 'job title-first word of company-date'
@@ -886,8 +885,9 @@ Create a highly targeted cover letter that could only work for this specific job
           fileName = `Cover_Letter-${dateOnly}.docx`;
         }
 
-        const filePath = path.join(downloadsPath, fileName);
-        console.log(`📄 Saving cover letter as: ${fileName}`);
+        console.log(`📄 Preparing cover letter as: ${fileName}`);
+
+        let fileData = null; // Will store base64 encoded file
 
         try {
           // Split cover letter into paragraphs and handle ending properly
@@ -1017,18 +1017,20 @@ Create a highly targeted cover letter that could only work for this specific job
             }]
           });
 
-          // Generate and save the document
+          // Generate the document buffer
           const buffer = await Packer.toBuffer(doc);
-          fs.writeFileSync(filePath, buffer);
-          console.log(`📄 Cover letter saved as Word document: ${filePath}`);
+
+          // Convert to base64 for sending to frontend
+          fileData = buffer.toString('base64');
+          console.log(`📄 Cover letter generated as Word document: ${fileName}`);
         } catch (saveError) {
-          console.error('Error saving cover letter as Word document:', saveError);
+          console.error('Error creating cover letter as Word document:', saveError);
         }
 
         results.push({
           jobUrl: jobUrl,
           coverLetter: coverLetter,
-          filePath: filePath,
+          fileData: fileData, // Base64 encoded file
           fileName: fileName,
           success: true,
           usedFallback: usedFallback,
