@@ -44,7 +44,7 @@ body {
 }
 
 .nav-logo .logo-full {
-    height: 240px;
+    height: 90px;
     width: auto;
     transition: transform 0.3s ease;
 }
