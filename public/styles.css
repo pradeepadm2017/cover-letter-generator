@@ -27,17 +27,50 @@ header {
 
 .header-content {
     display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: 20px;
 }
 
 .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 15px;
     flex-shrink: 0;
 }
 
 .header-logo .logo {
     height: 70px;
     width: auto;
+}
+
+.header-logo .logo-large {
+    height: 90px;
+}
+
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.brand-name {
+    color: #2563eb;
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.tagline {
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.header-spacer {
+    flex: 1;
 }
 
 .header-text {
@@ -782,6 +815,18 @@ button {
 
     .header-logo .logo {
         height: 50px;
+    }
+
+    .header-logo .logo-large {
+        height: 60px;
+    }
+
+    .brand-name {
+        font-size: 1.5rem;
+    }
+
+    .tagline {
+        font-size: 0.8rem;
     }
 
     header h1 {
