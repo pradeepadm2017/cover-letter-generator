@@ -169,6 +169,18 @@ async function handleResumeFileUpload(input) {
         return;
     }
 
+    // Check if file is PDF
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        fileStatus.classList.remove('hidden', 'success');
+        fileStatus.classList.add('error');
+        fileStatus.textContent = '✕ PDF files are not supported. Please upload DOC, DOCX, or TXT format.';
+        fileNameDisplay.textContent = 'Click to upload or drag & drop';
+        input.value = ''; // Clear the file input
+        resumeText = '';
+        updateGenerateButtonState();
+        return;
+    }
+
     fileNameDisplay.textContent = file.name;
     fileStatus.classList.remove('hidden', 'success', 'error');
     fileStatus.textContent = 'Processing file...';
@@ -194,7 +206,12 @@ async function handleResumeFileUpload(input) {
         updateGenerateButtonState();
     } catch (error) {
         fileStatus.classList.add('error');
-        fileStatus.textContent = `✕ Error: ${error.message}`;
+        // Improve error message for common issues
+        let errorMsg = error.message;
+        if (errorMsg.includes('DOMMatrix') || errorMsg.includes('Failed to process file')) {
+            errorMsg = 'Unable to process this file. Please use DOC, DOCX, or TXT format, or copy and paste your resume text instead.';
+        }
+        fileStatus.textContent = `✕ ${errorMsg}`;
         resumeText = '';
         updateGenerateButtonState();
     }
