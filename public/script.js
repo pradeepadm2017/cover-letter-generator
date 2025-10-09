@@ -420,9 +420,16 @@ async function generateAllCoverLetters() {
                             ${result.fallbackReason}
                         </p>
                         <p style="font-size: 12px; color: #666;">URL: ${result.jobUrl}</p>
-                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
-                            Please verify the URL is accessible and points to a job posting page.
-                        </p>
+                        <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 12px; margin-top: 15px; border-radius: 4px;">
+                            <p style="font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 8px;">💡 Common Issue - Multi-Job Listing Pages</p>
+                            <p style="font-size: 12px; color: #78350f; margin-bottom: 8px;">
+                                If you're on LinkedIn, Indeed, or other job portals showing multiple jobs in a left panel with details on the right, the tool cannot extract the specific job description.
+                            </p>
+                            <p style="font-size: 12px; color: #78350f; font-weight: 600; margin-bottom: 4px;">✅ Solution:</p>
+                            <p style="font-size: 12px; color: #78350f;">
+                                Click on the job title to open it in a full dedicated page, then copy that URL. The URL should show only one specific job, not a list of jobs.
+                            </p>
+                        </div>
                     `;
                 } else {
                     // Update URL status to error
