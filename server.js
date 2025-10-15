@@ -769,7 +769,7 @@ Create a highly targeted cover letter that could only work for this specific job
         console.log('🔍 Sending prompt to LLM:', prompt.substring(0, 300) + '...');
 
         const completion = await openai.chat.completions.create({
-          model: "gpt-4o",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
