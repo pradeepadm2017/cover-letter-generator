@@ -590,21 +590,23 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
       return res.status(400).json({ error: 'Resume and job URLs are required' });
     }
 
-    // Check usage limits
-    const usageCheck = await usageOps.canGenerate(req.user.id);
-    if (!usageCheck.allowed) {
-      return res.status(403).json({
-        error: 'Usage limit reached',
-        message: 'You have reached your monthly limit of 30 free cover letters. Please upgrade to continue.',
-        tier: usageCheck.tier,
-        remaining: usageCheck.remaining
-      });
-    }
-
     const results = [];
 
     for (let i = 0; i < jobUrls.length; i++) {
       const jobUrl = jobUrls[i];
+
+      // Check usage limits before processing each URL
+      const usageCheck = await usageOps.canGenerate(req.user.id);
+      if (!usageCheck.allowed) {
+        // Stop processing and return error
+        return res.status(403).json({
+          error: 'Usage limit reached',
+          message: 'You have reached your monthly limit. Please upgrade to continue or enter a promo code.',
+          tier: usageCheck.tier,
+          remaining: usageCheck.remaining,
+          results: results // Return any successful results so far
+        });
+      }
 
       try {
         let usedFallback = false;
