@@ -630,19 +630,6 @@ function updateUserUI(data) {
     document.getElementById('user-tier').textContent = formatTierName(data.user.tier);
     document.getElementById('user-tier').className = 'tier-badge tier-' + data.user.tier;
 
-    // Update modal
-    document.getElementById('modal-email').textContent = data.user.email;
-    document.getElementById('modal-tier').textContent = formatTierName(data.user.tier);
-    document.getElementById('modal-tier').className = 'value tier-badge tier-' + data.user.tier;
-
-    // Update usage display
-    if (data.usage.tier === 'free') {
-        const limit = data.usage.limit || 3;
-        document.getElementById('modal-usage').textContent = `${data.usage.used} / ${limit}`;
-    } else {
-        document.getElementById('modal-usage').textContent = 'Unlimited';
-    }
-
     // Update plan buttons
     document.querySelectorAll('.plan-card').forEach(card => {
         const tier = card.getAttribute('data-tier');
