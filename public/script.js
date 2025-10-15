@@ -408,6 +408,46 @@ async function generateAllCoverLetters() {
         if (!response.ok) {
             // Special handling for usage limit errors
             if (response.status === 403 && data.error === 'Usage limit reached') {
+                // Process any successful results before showing the limit message
+                if (data.results && data.results.length > 0) {
+                    // Display the partial results first
+                    data.results.forEach((result, index) => {
+                        if (result.success) {
+                            updateUrlStatus(index, 'success', 'Cover letter generated successfully');
+                            if (result.fileData) {
+                                setTimeout(() => {
+                                    downloadFile(result.fileName, result.fileData);
+                                }, 300 * (index + 1));
+                            }
+                        }
+                    });
+
+                    // Add summary for partial results
+                    const successCount = data.results.filter(r => r.success).length;
+                    const summaryDiv = document.createElement('div');
+                    summaryDiv.className = 'generation-summary';
+                    summaryDiv.innerHTML = `
+                        <div class="summary-content">
+                            <h3>Generation Summary</h3>
+                            <div class="summary-stats">
+                                <div class="stat-item success">
+                                    <span class="stat-icon">✓</span>
+                                    <span class="stat-text">${successCount} cover letter${successCount !== 1 ? 's' : ''} generated successfully</span>
+                                </div>
+                                <div class="stat-item warning">
+                                    <span class="stat-icon">⚠</span>
+                                    <span class="stat-text">Stopped: Monthly limit reached</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    coverLettersContainer.appendChild(summaryDiv);
+
+                    if (successCount > 0) {
+                        showSuccess(`${successCount} cover letter${successCount > 1 ? 's' : ''} generated successfully!`);
+                    }
+                }
+
                 hideLoading();
                 const shouldOpenModal = confirm('You have reached your monthly limit.\n\nWould you like to:\n• Enter a promo code for more free cover letters\n• Or upgrade to a paid plan for unlimited access?\n\nClick OK to view options or Cancel to return.');
                 if (shouldOpenModal) {
