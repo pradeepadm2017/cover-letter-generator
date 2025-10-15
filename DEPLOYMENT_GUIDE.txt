@@ -1,0 +1,225 @@
+# DEPLOYMENT GUIDE - FastCoverLetters.com
+
+## Overview
+This guide will walk you through deploying your cover letter generator application to fastcoverletters.com using Vercel.
+
+## Prerequisites
+- GitHub account
+- Vercel account (free tier is sufficient)
+- Squarespace domain: fastcoverletters.com
+- Supabase project with production configuration
+
+## Step 1: Push Code to GitHub
+
+1. Initialize Git repository (if not already done):
+   git init
+   git add .
+   git commit -m "Initial commit - Cover Letter Generator"
+
+2. Create a new repository on GitHub:
+   - Go to https://github.com/new
+   - Repository name: cover-letter-generator
+   - Make it private (recommended for now)
+   - Don't initialize with README (we already have code)
+   - Click "Create repository"
+
+3. Push your code:
+   git remote add origin https://github.com/YOUR_USERNAME/cover-letter-generator.git
+   git branch -M main
+   git push -u origin main
+
+## Step 2: Deploy to Vercel
+
+1. Sign up/Login to Vercel:
+   - Go to https://vercel.com
+   - Sign in with your GitHub account
+
+2. Import your repository:
+   - Click "Add New Project"
+   - Select your cover-letter-generator repository
+   - Click "Import"
+
+3. Configure project settings:
+   - Framework Preset: Other (it will auto-detect)
+   - Root Directory: ./
+   - Build Command: (leave default)
+   - Output Directory: (leave default)
+   - Install Command: npm install
+
+4. Add Environment Variables (CRITICAL - do this before deploying):
+   Click "Environment Variables" and add:
+
+   SUPABASE_URL=your_supabase_project_url
+   SUPABASE_ANON_KEY=your_supabase_anon_key
+   OPENAI_API_KEY=your_openai_api_key
+   NODE_ENV=production
+
+   Note: Get these values from:
+   - Supabase: Project Settings > API
+   - OpenAI: https://platform.openai.com/api-keys
+
+5. Click "Deploy"
+   - Vercel will build and deploy your application
+   - This may take 2-3 minutes
+   - You'll get a temporary URL like: cover-letter-generator.vercel.app
+
+## Step 3: Update Supabase Production Settings
+
+1. Go to your Supabase project dashboard
+2. Navigate to Authentication > URL Configuration
+3. Add the Vercel URLs to allowed redirect URLs:
+   - https://cover-letter-generator.vercel.app
+   - https://cover-letter-generator.vercel.app/app
+   - https://fastcoverletters.com (your custom domain)
+   - https://fastcoverletters.com/app
+
+4. Update Site URL to: https://fastcoverletters.com
+
+## Step 4: Test Deployment on Vercel URL
+
+1. Visit your Vercel URL (cover-letter-generator.vercel.app)
+2. Test the following:
+   - Landing page loads correctly
+   - Google authentication works
+   - Magic link authentication works
+   - User can access app after login
+   - Cover letter generation works
+   - File upload works
+
+3. If any issues:
+   - Check Vercel deployment logs
+   - Verify environment variables are set correctly
+   - Check browser console for errors
+
+## Step 5: Connect Squarespace Domain to Vercel
+
+### In Vercel:
+1. Go to your project in Vercel
+2. Click "Settings" > "Domains"
+3. Enter: fastcoverletters.com
+4. Click "Add"
+5. Vercel will show DNS records you need to add
+
+### In Squarespace:
+1. Log into your Squarespace account
+2. Go to Settings > Domains
+3. Click on fastcoverletters.com
+4. Click "DNS Settings" or "Advanced Settings"
+
+5. Add the DNS records provided by Vercel:
+
+   Option A - If Vercel shows A records:
+   Type: A
+   Host: @
+   Value: 76.76.21.21 (Vercel's IP)
+
+   Type: CNAME
+   Host: www
+   Value: cname.vercel-dns.com
+
+   Option B - If Vercel shows CNAME:
+   Type: CNAME
+   Host: @
+   Value: cname.vercel-dns.com
+
+   Type: CNAME
+   Host: www
+   Value: cname.vercel-dns.com
+
+6. Save DNS changes
+
+### Wait for DNS Propagation:
+- DNS changes can take 24-48 hours (usually much faster, 1-4 hours)
+- You can check status at: https://dnschecker.org
+- Enter: fastcoverletters.com
+
+## Step 6: Test Production Deployment
+
+Once DNS propagates:
+1. Visit https://fastcoverletters.com
+2. Test all authentication methods:
+   - Google sign-in
+   - Magic link sign-in
+3. Test cover letter generation with multiple job URLs
+4. Test subscription modal
+5. Test file upload
+6. Test on mobile devices
+
+## Step 7: Enable SSL/HTTPS
+
+Vercel automatically provides SSL certificates for your domain.
+- This happens automatically after domain verification
+- Your site will be accessible via https://
+- HTTP traffic is automatically redirected to HTTPS
+
+## Troubleshooting
+
+### Issue: Authentication not working
+- Check Supabase redirect URLs include production domain
+- Verify environment variables in Vercel
+- Check browser console for errors
+
+### Issue: API calls failing
+- Check environment variables are set in Vercel
+- Check Vercel function logs: Project > Deployments > Click deployment > Functions tab
+- Ensure OPENAI_API_KEY is valid
+
+### Issue: Domain not connecting
+- Verify DNS records are correct
+- Wait for DNS propagation (can take up to 48 hours)
+- Use https://dnschecker.org to check DNS status
+- Ensure you removed any conflicting records in Squarespace
+
+### Issue: Cover letter generation failing
+- Check OpenAI API key is valid
+- Check API credits/billing in OpenAI dashboard
+- Check Vercel function logs for errors
+
+## Post-Deployment Checklist
+
+- [ ] Application loads on https://fastcoverletters.com
+- [ ] Google authentication works
+- [ ] Magic link authentication works
+- [ ] Cover letter generation works
+- [ ] File upload and parsing works
+- [ ] Subscription modal displays correctly
+- [ ] All links work (support phone/email)
+- [ ] SSL certificate is active (padlock icon in browser)
+- [ ] Test on mobile devices
+- [ ] Test on different browsers (Chrome, Firefox, Safari, Edge)
+
+## Future Enhancements
+
+1. Set up custom email domain for magic links
+   - Use a custom domain for sending authentication emails
+   - Configure in Supabase Email Settings
+
+2. Integrate Stripe payments
+   - Add Stripe environment variables to Vercel
+   - Implement webhook endpoint
+   - Test subscription flows
+
+3. Set up monitoring
+   - Use Vercel Analytics
+   - Set up error tracking (Sentry, LogRocket, etc.)
+
+4. Configure custom 404/500 error pages
+
+5. Set up automated backups for Supabase database
+
+## Important Notes
+
+- Never commit .env files to Git (they're in .gitignore)
+- Keep your API keys secure
+- Regularly update dependencies for security
+- Monitor OpenAI API usage to avoid unexpected charges
+- Back up your Supabase database regularly
+
+## Support
+
+If you encounter issues:
+1. Check Vercel deployment logs
+2. Check Supabase logs
+3. Check browser console
+4. Refer to Vercel documentation: https://vercel.com/docs
+5. Refer to Supabase documentation: https://supabase.com/docs
