@@ -254,6 +254,8 @@ body {
     text-align: center;
     position: relative;
     transition: transform 0.3s, box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
 }
 
 .pricing-card:hover {
@@ -316,6 +318,7 @@ body {
     list-style: none;
     margin: 15px 0;
     text-align: left;
+    flex-grow: 1;
 }
 
 .pricing-features li {
