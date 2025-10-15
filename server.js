@@ -788,6 +788,91 @@ Create a highly targeted cover letter that could only work for this specific job
 
         let coverLetter = completion.choices[0].message.content;
 
+        // PARAGRAPH VALIDATION WITH RETRY
+        // Helper function to count content paragraphs (excluding greeting and closing)
+        function countContentParagraphs(text) {
+          if (!text) return 0;
+
+          // Split by double newlines to get paragraphs
+          const paragraphs = text.split('\n\n').filter(p => p.trim().length > 50);
+
+          // Filter out greeting, closing, and candidate name
+          const contentParagraphs = paragraphs.filter(p => {
+            const lower = p.toLowerCase().trim();
+            return !lower.startsWith('dear hiring manager') &&
+                   !lower.startsWith('best regards') &&
+                   !lower.startsWith('warm regards') &&
+                   !lower.startsWith('sincerely') &&
+                   !p.includes(candidateName);
+          });
+
+          return contentParagraphs.length;
+        }
+
+        // Validate paragraph count
+        let paragraphCount = countContentParagraphs(coverLetter);
+        console.log(`📊 Initial paragraph count: ${paragraphCount} (target: 4)`);
+
+        // If not exactly 4 paragraphs, retry ONCE with enhanced prompt
+        if (paragraphCount !== 4) {
+          console.log(`⚠️ Wrong paragraph count: ${paragraphCount}. Retrying with enhanced prompt...`);
+
+          const enhancedPrompt = `${prompt}
+
+CRITICAL ALERT: You FAILED the paragraph count requirement. You MUST write EXACTLY 4 paragraphs of content between the greeting and closing.
+
+Structure MUST be:
+1. Dear Hiring Manager,
+2. [PARAGRAPH 1 - Opening]
+3. [PARAGRAPH 2 - Main experience]
+4. [PARAGRAPH 3 - Additional qualifications]
+5. [PARAGRAPH 4 - Closing]
+6. Best Regards,
+7. ${candidateName}
+
+Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you have FAILED.`;
+
+          try {
+            const retryCompletion = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a professional cover letter writer. You must follow formatting instructions exactly. CRITICAL: Write EXACTLY 4 paragraphs of content between greeting and closing. Never include contact information, asterisks, or content outside the specified format."
+                },
+                {
+                  role: "user",
+                  content: enhancedPrompt
+                }
+              ],
+              max_tokens: 1500,
+              temperature: 0.3
+            });
+
+            const retryCoverLetter = retryCompletion.choices[0].message.content;
+            const retryParagraphCount = countContentParagraphs(retryCoverLetter);
+            console.log(`📊 Retry paragraph count: ${retryParagraphCount} (target: 4)`);
+
+            // Use retry result if it's exactly 4, otherwise use whichever is closer to 4
+            if (retryParagraphCount === 4) {
+              coverLetter = retryCoverLetter;
+              paragraphCount = retryParagraphCount;
+              console.log('✅ Retry successful! Using retry result with exactly 4 paragraphs.');
+            } else if (Math.abs(retryParagraphCount - 4) < Math.abs(paragraphCount - 4)) {
+              coverLetter = retryCoverLetter;
+              paragraphCount = retryParagraphCount;
+              console.log(`⚠️ Retry produced ${retryParagraphCount} paragraphs (closer to 4). Using retry result.`);
+            } else {
+              console.log(`⚠️ Retry produced ${retryParagraphCount} paragraphs. Keeping original with ${paragraphCount} paragraphs.`);
+            }
+          } catch (retryError) {
+            console.error('❌ Retry failed:', retryError.message);
+            console.log('⚠️ Using original result despite incorrect paragraph count.');
+          }
+        } else {
+          console.log('✅ Perfect! Cover letter has exactly 4 paragraphs.');
+        }
+
         // Post-process to ensure format requirements
         if (coverLetter) {
           console.log('🔧 Before post-processing:', coverLetter.substring(0, 200));
