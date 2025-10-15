@@ -666,6 +666,8 @@ button {
     text-align: center;
     position: relative;
     transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
 }
 
 .plan-card:hover {
@@ -727,6 +729,7 @@ button {
     padding: 0;
     margin: 20px 0;
     text-align: left;
+    flex-grow: 1;
 }
 
 .plan-card .features li {
