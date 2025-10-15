@@ -510,6 +510,11 @@ button {
     color: #065f46;
 }
 
+.tier-badge.tier-lifetime {
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+    color: white;
+}
+
 .btn-secondary {
     padding: 8px 16px;
     background-color: #2563eb;
@@ -648,7 +653,7 @@ button {
 
 .plans-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     margin-bottom: 30px;
 }
@@ -685,6 +690,10 @@ button {
     border-radius: 12px;
     font-size: 12px;
     font-weight: 600;
+}
+
+.plan-card .badge.lifetime {
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
 }
 
 .plan-card h4 {
