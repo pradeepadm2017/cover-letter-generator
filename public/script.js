@@ -408,6 +408,8 @@ async function generateAllCoverLetters() {
         if (!response.ok) {
             // Special handling for usage limit errors
             if (response.status === 403 && data.error === 'Usage limit reached') {
+                hideLoading();
+
                 // Process any successful results before showing the limit message
                 if (data.results && data.results.length > 0) {
                     // Display the partial results first
@@ -415,9 +417,8 @@ async function generateAllCoverLetters() {
                         if (result.success) {
                             updateUrlStatus(index, 'success', 'Cover letter generated successfully');
                             if (result.fileData) {
-                                setTimeout(() => {
-                                    downloadFile(result.fileName, result.fileData);
-                                }, 300 * (index + 1));
+                                // Download immediately, no delay needed
+                                downloadFile(result.fileName, result.fileData);
                             }
                         }
                     });
@@ -448,11 +449,14 @@ async function generateAllCoverLetters() {
                     }
                 }
 
-                hideLoading();
-                const shouldOpenModal = confirm('You have reached your monthly limit.\n\nWould you like to:\n• Enter a promo code for more free cover letters\n• Or upgrade to a paid plan for unlimited access?\n\nClick OK to view options or Cancel to return.');
-                if (shouldOpenModal) {
-                    toggleSubscriptionModal();
-                }
+                // Show modal after a short delay to let downloads start
+                setTimeout(() => {
+                    const shouldOpenModal = confirm('You have reached your monthly limit.\n\nWould you like to:\n• Enter a promo code for more free cover letters\n• Or upgrade to a paid plan for unlimited access?\n\nClick OK to view options or Cancel to return.');
+                    if (shouldOpenModal) {
+                        toggleSubscriptionModal();
+                    }
+                }, 500);
+
                 return;
             }
             throw new Error(data.error || 'Failed to generate cover letters');
