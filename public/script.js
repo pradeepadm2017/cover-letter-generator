@@ -501,13 +501,13 @@ async function generateAllCoverLetters() {
                                 </p>
                                 <p style="font-size: 12px; color: #78350f; font-weight: 600; margin-bottom: 4px;">✅ What You Can Do:</p>
                                 <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
-                                    • Make sure you're logged into the job site and can see the full job description
+                                    • Try finding the same job on a different job board (Indeed, LinkedIn, Glassdoor, etc.)
                                 </p>
                                 <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
-                                    • Try copying the job description text directly and pasting it into a document
+                                    • Look for a publicly accessible link to this job posting
                                 </p>
                                 <p style="font-size: 12px; color: #78350f;">
-                                    • Some job sites don't allow automated access - you may need to manually copy the content
+                                    • Some company career sites restrict access - try searching on major job boards instead
                                 </p>
                             </div>
                         `;
