@@ -205,6 +205,41 @@ app.post('/api/subscription/cancel', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Apply promo code
+app.post('/api/promo-code/apply', ensureAuthenticated, async (req, res) => {
+  try {
+    const { promoCode } = req.body;
+
+    if (!promoCode) {
+      return res.status(400).json({ error: 'Promo code is required' });
+    }
+
+    const result = await userOps.applyPromoCode(req.user.id, promoCode);
+
+    // Return updated usage info
+    const usage = await usageOps.canGenerate(req.user.id);
+
+    res.json({
+      success: true,
+      message: result.message,
+      usage: usage
+    });
+  } catch (error) {
+    console.error('Error applying promo code:', error);
+
+    // Send user-friendly error messages
+    if (error.message === 'Promo code already used') {
+      return res.status(400).json({ error: 'You have already used this promo code' });
+    } else if (error.message === 'Invalid promo code') {
+      return res.status(400).json({ error: 'Invalid promo code' });
+    } else if (error.message === 'User not found') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(500).json({ error: 'Failed to apply promo code' });
+  }
+});
+
 // Route to serve the landing page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

@@ -65,6 +65,48 @@ const userOps = {
       isActive: isActive,
       expiresAt: expiresAt
     };
+  },
+
+  applyPromoCode: async (userId, promoCode) => {
+    const user = await userOps.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if promo code already used
+    const usedCodes = user.promo_codes_used || [];
+    if (usedCodes.includes(promoCode)) {
+      throw new Error('Promo code already used');
+    }
+
+    // Validate promo code
+    if (promoCode === 'FIRST999') {
+      // Add promo code to used list and set custom limit to 30
+      const updatedCodes = [...usedCodes, promoCode];
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          promo_codes_used: updatedCodes,
+          custom_monthly_limit: 30
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error applying promo code:', error);
+        throw error;
+      }
+
+      return {
+        success: true,
+        newLimit: 30,
+        message: 'Promo code applied! You now have 30 cover letters for this month.'
+      };
+    } else {
+      throw new Error('Invalid promo code');
+    }
   }
 };
 
@@ -145,18 +187,22 @@ const usageOps = {
 
   canGenerate: async (userId) => {
     const subscription = await userOps.getSubscriptionStatus(userId);
+    const user = await userOps.findById(userId);
 
     // Paid users with active subscription have unlimited access
     if (subscription && subscription.tier !== 'free' && subscription.isActive) {
       return { allowed: true, remaining: -1, tier: subscription.tier };
     }
 
-    // Free users get 30 per month (temporarily increased for testing)
-    const usage = await usageOps.getUsage(userId);
-    const allowed = usage < 30;
-    const remaining = Math.max(0, 30 - usage);
+    // Check if user has custom monthly limit from promo code
+    const monthlyLimit = user?.custom_monthly_limit || 3;
 
-    return { allowed, remaining, tier: 'free', used: usage };
+    // Free users get 3 per month (or custom limit from promo code)
+    const usage = await usageOps.getUsage(userId);
+    const allowed = usage < monthlyLimit;
+    const remaining = Math.max(0, monthlyLimit - usage);
+
+    return { allowed, remaining, tier: 'free', used: usage, limit: monthlyLimit };
   }
 };
 

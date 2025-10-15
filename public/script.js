@@ -406,6 +406,15 @@ async function generateAllCoverLetters() {
         const data = await response.json();
 
         if (!response.ok) {
+            // Special handling for usage limit errors
+            if (response.status === 403 && data.error === 'Usage limit reached') {
+                hideLoading();
+                const shouldOpenModal = confirm('You have reached your monthly limit.\n\nWould you like to:\n• Enter a promo code for more free cover letters\n• Or upgrade to a paid plan for unlimited access?\n\nClick OK to view options or Cancel to return.');
+                if (shouldOpenModal) {
+                    toggleSubscriptionModal();
+                }
+                return;
+            }
             throw new Error(data.error || 'Failed to generate cover letters');
         }
 
@@ -431,22 +440,62 @@ async function generateAllCoverLetters() {
                     // Update URL status to fallback/warning
                     updateUrlStatus(index, 'fallback', result.fallbackReason);
 
+                    // Check if this is a login wall issue
+                    const isLoginWall = result.fallbackReason &&
+                        (result.fallbackReason.includes('login wall') ||
+                         result.fallbackReason.includes('login page') ||
+                         result.fallbackReason.includes('invalid page'));
+
+                    let helpContent = '';
+                    if (isLoginWall) {
+                        // Non-technical explanation for login walls
+                        helpContent = `
+                            <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 12px; margin-top: 15px; border-radius: 4px;">
+                                <p style="font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 8px;">🔒 Why This Happened</p>
+                                <p style="font-size: 12px; color: #78350f; margin-bottom: 8px;">
+                                    The job posting page requires you to be logged in to view it. Our tool cannot access pages that are behind a login.
+                                </p>
+                                <p style="font-size: 12px; color: #78350f; font-weight: 600; margin-bottom: 4px;">✅ What You Can Do:</p>
+                                <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
+                                    • Make sure you're logged into the job site and can see the full job description
+                                </p>
+                                <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
+                                    • Try copying the job description text directly and pasting it into a document
+                                </p>
+                                <p style="font-size: 12px; color: #78350f;">
+                                    • Some job sites don't allow automated access - you may need to manually copy the content
+                                </p>
+                            </div>
+                        `;
+                    } else {
+                        // Generic help for other fetch failures
+                        helpContent = `
+                            <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 12px; margin-top: 15px; border-radius: 4px;">
+                                <p style="font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 8px;">💡 What This Means</p>
+                                <p style="font-size: 12px; color: #78350f; margin-bottom: 8px;">
+                                    We couldn't access or read the job posting from this URL. This can happen if the page has restrictions or the link has expired.
+                                </p>
+                                <p style="font-size: 12px; color: #78350f; font-weight: 600; margin-bottom: 4px;">✅ Try This:</p>
+                                <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
+                                    • Check if the URL still works in your browser
+                                </p>
+                                <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
+                                    • Make sure the link goes directly to a single job posting
+                                </p>
+                                <p style="font-size: 12px; color: #78350f;">
+                                    • Try refreshing the job page and copying the URL again
+                                </p>
+                            </div>
+                        `;
+                    }
+
                     coverLetterDiv.innerHTML = `
                         <h3 style="color: #f59e0b;">⚠️ Job ${index + 1} - Cover Letter Not Generated</h3>
                         <p style="color: #f59e0b; font-size: 14px; margin-bottom: 10px;">
-                            ${result.fallbackReason}
+                            We couldn't access this job posting.
                         </p>
                         <p style="font-size: 12px; color: #666;">URL: ${result.jobUrl}</p>
-                        <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 12px; margin-top: 15px; border-radius: 4px;">
-                            <p style="font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 8px;">💡 Common Issue - Multi-Job Listing Pages</p>
-                            <p style="font-size: 12px; color: #78350f; margin-bottom: 8px;">
-                                If you're on LinkedIn, Indeed, or other job portals showing multiple jobs in a left panel with details on the right, the tool cannot extract the specific job description.
-                            </p>
-                            <p style="font-size: 12px; color: #78350f; font-weight: 600; margin-bottom: 4px;">✅ Solution:</p>
-                            <p style="font-size: 12px; color: #78350f;">
-                                Click on the job title to open it in a full dedicated page, then copy that URL. The URL should show only one specific job, not a list of jobs.
-                            </p>
-                        </div>
+                        ${helpContent}
                     `;
                 } else {
                     // Update URL status to error
@@ -465,6 +514,33 @@ async function generateAllCoverLetters() {
 
         const successCount = data.results.filter(r => r.success).length;
         const fallbackCount = data.results.filter(r => r.usedFallback).length;
+        const totalCount = data.results.length;
+
+        // Add summary section at the bottom
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'generation-summary';
+        summaryDiv.innerHTML = `
+            <div class="summary-content">
+                <h3>Generation Summary</h3>
+                <div class="summary-stats">
+                    <div class="stat-item success">
+                        <span class="stat-icon">✓</span>
+                        <span class="stat-text">${successCount} cover letter${successCount !== 1 ? 's' : ''} generated successfully</span>
+                    </div>
+                    ${fallbackCount > 0 ? `
+                    <div class="stat-item warning">
+                        <span class="stat-icon">⚠</span>
+                        <span class="stat-text">${fallbackCount} URL${fallbackCount !== 1 ? 's' : ''} failed</span>
+                    </div>
+                    ` : ''}
+                    <div class="stat-item total">
+                        <span class="stat-icon">📊</span>
+                        <span class="stat-text">Total: ${successCount} of ${totalCount} successful</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        coverLettersContainer.appendChild(summaryDiv);
 
         if (successCount > 0) {
             let successMsg = `${successCount} cover letter${successCount > 1 ? 's' : ''} generated successfully!`;
@@ -517,7 +593,8 @@ function updateUserUI(data) {
 
     // Update usage display
     if (data.usage.tier === 'free') {
-        document.getElementById('modal-usage').textContent = `${data.usage.used} / 3`;
+        const limit = data.usage.limit || 3;
+        document.getElementById('modal-usage').textContent = `${data.usage.used} / ${limit}`;
     } else {
         document.getElementById('modal-usage').textContent = 'Unlimited';
     }
@@ -633,6 +710,54 @@ async function cancelSubscription() {
     } catch (error) {
         console.error('Error canceling subscription:', error);
         showError('Failed to cancel subscription');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function applyPromoCode() {
+    const promoCodeInput = document.getElementById('promo-code-input');
+    const promoMessage = document.getElementById('promo-message');
+    const promoCode = promoCodeInput.value.trim().toUpperCase();
+
+    if (!promoCode) {
+        promoMessage.textContent = 'Please enter a promo code';
+        promoMessage.className = 'promo-message error';
+        promoMessage.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        showLoading();
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/promo-code/apply', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ promoCode })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            promoMessage.textContent = data.message;
+            promoMessage.className = 'promo-message success';
+            promoMessage.classList.remove('hidden');
+            promoCodeInput.value = '';
+
+            // Reload user data to update usage display
+            await loadUserData();
+
+            showSuccess('Promo code applied successfully!');
+        } else {
+            promoMessage.textContent = data.error || 'Failed to apply promo code';
+            promoMessage.className = 'promo-message error';
+            promoMessage.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error applying promo code:', error);
+        promoMessage.textContent = 'Failed to apply promo code';
+        promoMessage.className = 'promo-message error';
+        promoMessage.classList.remove('hidden');
     } finally {
         hideLoading();
     }
