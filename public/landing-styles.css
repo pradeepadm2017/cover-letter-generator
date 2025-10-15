@@ -168,28 +168,28 @@ body {
 
 /* Features Section */
 .features {
-    padding: 80px 20px;
+    padding: 50px 20px 60px;
     background: #f9fafb;
 }
 
 .features h2 {
     text-align: center;
-    font-size: 2.5rem;
-    margin-bottom: 60px;
+    font-size: 2rem;
+    margin-bottom: 35px;
     color: #1f2937;
 }
 
 .features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 30px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
     max-width: 1200px;
     margin: 0 auto;
 }
 
 .feature-card {
     background: white;
-    padding: 30px;
+    padding: 22px;
     border-radius: 10px;
     text-align: center;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
@@ -202,45 +202,46 @@ body {
 }
 
 .feature-icon {
-    font-size: 3rem;
-    margin-bottom: 20px;
+    font-size: 2.5rem;
+    margin-bottom: 12px;
 }
 
 .feature-card h3 {
-    font-size: 1.5rem;
-    margin-bottom: 15px;
+    font-size: 1.15rem;
+    margin-bottom: 10px;
     color: #1f2937;
 }
 
 .feature-card p {
     color: #6b7280;
-    line-height: 1.6;
+    line-height: 1.5;
+    font-size: 0.9rem;
 }
 
 /* Pricing Section */
 .pricing {
-    padding: 80px 20px;
+    padding: 50px 20px 60px;
     background: white;
 }
 
 .pricing h2 {
     text-align: center;
-    font-size: 2.5rem;
-    margin-bottom: 15px;
+    font-size: 2rem;
+    margin-bottom: 12px;
     color: #1f2937;
 }
 
 .pricing-subtitle {
     text-align: center;
-    font-size: 1.2rem;
+    font-size: 1rem;
     color: #6b7280;
-    margin-bottom: 60px;
+    margin-bottom: 35px;
 }
 
 .pricing-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    gap: 15px;
     max-width: 1200px;
     margin: 0 auto;
 }
@@ -249,7 +250,7 @@ body {
     background: white;
     border: 2px solid #e5e7eb;
     border-radius: 12px;
-    padding: 40px 30px;
+    padding: 25px 20px;
     text-align: center;
     position: relative;
     transition: transform 0.3s, box-shadow 0.3s;
@@ -284,42 +285,43 @@ body {
 }
 
 .pricing-header h3 {
-    font-size: 1.5rem;
-    margin-bottom: 20px;
+    font-size: 1.25rem;
+    margin-bottom: 15px;
     color: #1f2937;
 }
 
 .pricing-price {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .price-amount {
-    font-size: 3rem;
+    font-size: 2.5rem;
     font-weight: 700;
     color: #1f2937;
 }
 
 .price-period {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: #6b7280;
 }
 
 .pricing-savings {
     color: #059669;
     font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 20px;
+    font-size: 13px;
+    margin-bottom: 15px;
 }
 
 .pricing-features {
     list-style: none;
-    margin: 30px 0;
+    margin: 20px 0;
     text-align: left;
 }
 
 .pricing-features li {
-    padding: 12px 0;
+    padding: 8px 0;
     color: #4b5563;
+    font-size: 0.9rem;
     border-bottom: 1px solid #f3f4f6;
 }
 
@@ -330,17 +332,17 @@ body {
 .btn-pricing {
     display: block;
     width: 100%;
-    padding: 15px;
+    padding: 12px;
     background: #2563eb;
     color: white;
     text-decoration: none;
     border-radius: 8px;
     font-weight: 600;
-    margin-top: 20px;
+    margin-top: 15px;
     transition: background-color 0.3s;
     border: none;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
 }
 
 .btn-pricing:hover {
