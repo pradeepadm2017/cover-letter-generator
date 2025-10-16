@@ -196,7 +196,7 @@ async function tier2_apifyFetch(url) {
  * Apify: Indeed-specific scraping
  */
 async function apifyFetchIndeed(url) {
-  console.log('   📍 Using Apify Indeed actor...');
+  console.log('   📍 Using Apify browser-based scraper for Indeed...');
 
   // Extract job key from URL
   const vjkMatch = url.match(/[?&]vjk=([a-f0-9]+)/i);
@@ -206,34 +206,169 @@ async function apifyFetchIndeed(url) {
 
   const jobKey = vjkMatch[1];
   const country = url.includes('ca.indeed.com') ? 'CA' : 'US';
+  const indeedUrl = `https://${country === 'CA' ? 'ca' : 'www'}.indeed.com/viewjob?jk=${jobKey}`;
+
+  console.log(`   🔗 Indeed URL: ${indeedUrl}`);
 
   try {
-    // Use Apify's web scraper actor with Indeed-specific configuration
-    const run = await apifyClient.actor('apify/cheerio-scraper').call({
-      startUrls: [{ url: `https://${country === 'CA' ? 'ca' : 'www'}.indeed.com/viewjob?jk=${jobKey}` }],
-      maxRequestsPerCrawl: 1,
-      maxRequestRetries: 3,
+    // Use Apify's Web Scraper with Puppeteer (renders JavaScript)
+    const run = await apifyClient.actor('apify/web-scraper').call({
+      startUrls: [{ url: indeedUrl }],
+      linkSelector: 'a[href]',
+      pseudoUrls: [],
       pageFunction: async function pageFunction(context) {
-        const { $, request } = context;
+        const { page, request } = context;
 
-        // Remove unwanted elements
-        $('script, style, nav, header, footer').remove();
+        // Wait for the page to load
+        await page.waitForSelector('body', { timeout: 5000 }).catch(() => {});
 
-        // Extract job information
-        const jobTitle = $('h1.jobsearch-JobInfoHeader-title, h1').first().text().trim();
-        const companyName = $('[data-company-name="true"], .jobsearch-CompanyInfoContainer').first().text().trim();
-        const jobDescription = $('#jobDescriptionText, .jobsearch-jobDescriptionText, .job-description').first().text().trim();
+        // DEBUG: Get full HTML content and page info
+        const debugInfo = await page.evaluate(() => {
+          const pageTitle = document.title;
+          const pageUrl = window.location.href;
+          const bodyTextPreview = document.body.textContent.trim().substring(0, 1000);
+          const htmlPreview = document.documentElement.outerHTML.substring(0, 2000);
+
+          // Count different elements
+          const h1Count = document.querySelectorAll('h1').length;
+          const divCount = document.querySelectorAll('div').length;
+          const scriptCount = document.querySelectorAll('script').length;
+
+          // Get all h1 text
+          const h1Texts = Array.from(document.querySelectorAll('h1')).map(h => h.textContent.trim()).join(' | ');
+
+          // Check for common blocking patterns
+          const bodyLower = document.body.textContent.toLowerCase();
+          const hasSignIn = bodyLower.includes('sign in');
+          const hasCaptcha = bodyLower.includes('captcha') || bodyLower.includes('robot');
+          const hasAccessDenied = bodyLower.includes('access denied') || bodyLower.includes('403');
+
+          return {
+            pageTitle,
+            pageUrl,
+            bodyTextPreview,
+            htmlPreview,
+            elementCounts: { h1Count, divCount, scriptCount },
+            h1Texts,
+            blockingIndicators: { hasSignIn, hasCaptcha, hasAccessDenied }
+          };
+        });
+
+        // Log debug information
+        console.log('\n🔍 DEBUG - Page Information:');
+        console.log('   📄 Page Title:', debugInfo.pageTitle);
+        console.log('   🔗 Page URL:', debugInfo.pageUrl);
+        console.log('   📊 Elements: h1s:', debugInfo.elementCounts.h1Count, 'divs:', debugInfo.elementCounts.divCount);
+        console.log('   📝 H1 Texts:', debugInfo.h1Texts || 'NONE FOUND');
+        console.log('   🚫 Blocking Indicators:', JSON.stringify(debugInfo.blockingIndicators));
+        console.log('   📃 Body Preview (first 500 chars):\n', debugInfo.bodyTextPreview.substring(0, 500));
+        console.log('   📃 HTML Preview (first 1000 chars):\n', debugInfo.htmlPreview.substring(0, 1000));
+
+        // Extract job information using page.evaluate
+        const data = await page.evaluate(() => {
+          // Extract job title
+          let jobTitle = '';
+          let titleSelectorUsed = '';
+          const titleSelectors = [
+            'h1.jobsearch-JobInfoHeader-title',
+            'h1[class*="jobTitle"]',
+            'h1[class*="JobTitle"]',
+            'h2[class*="jobTitle"]',
+            'span[class*="jobTitle"]',
+            'div[class*="jobTitle"]',
+            'h1',
+            'h2'
+          ];
+          for (const selector of titleSelectors) {
+            const el = document.querySelector(selector);
+            if (el && el.textContent.trim() && el.textContent.trim().length > 5) {
+              jobTitle = el.textContent.trim();
+              titleSelectorUsed = selector;
+              break;
+            }
+          }
+
+          // Extract company name
+          let companyName = '';
+          let companySelectorUsed = '';
+          const companySelectors = [
+            '[data-company-name="true"]',
+            '[class*="CompanyInfo"]',
+            '[class*="companyName"]',
+            '[class*="company-name"]',
+            'span[class*="company"]',
+            'div[class*="company"]'
+          ];
+          for (const selector of companySelectors) {
+            const el = document.querySelector(selector);
+            if (el && el.textContent.trim() && el.textContent.trim().length > 2) {
+              companyName = el.textContent.trim();
+              companySelectorUsed = selector;
+              break;
+            }
+          }
+
+          // Extract job description
+          let jobDescription = '';
+          let descSelectorUsed = '';
+          const descSelectors = [
+            '#jobDescriptionText',
+            '[id*="jobDescription"]',
+            '[class*="jobDescriptionText"]',
+            '[class*="jobDescription"]',
+            '[class*="job-description"]',
+            'div[class*="description"]',
+            'section[class*="description"]',
+            'main'
+          ];
+          for (const selector of descSelectors) {
+            const el = document.querySelector(selector);
+            if (el && el.textContent.trim() && el.textContent.trim().length > 200) {
+              jobDescription = el.textContent.trim();
+              descSelectorUsed = selector;
+              break;
+            }
+          }
+
+          // Fallback to body text if description not found
+          if (!jobDescription || jobDescription.length < 200) {
+            jobDescription = document.body.textContent.trim().substring(0, 5000);
+            descSelectorUsed = 'body (fallback)';
+          }
+
+          return {
+            jobTitle,
+            companyName,
+            jobDescription,
+            selectorsUsed: {
+              titleSelectorUsed,
+              companySelectorUsed,
+              descSelectorUsed
+            }
+          };
+        });
+
+        console.log('\n🎯 Extraction Results:');
+        console.log('   📋 Job Title:', data.jobTitle || 'NOT FOUND');
+        console.log('      Used selector:', data.selectorsUsed.titleSelectorUsed || 'NONE');
+        console.log('   🏢 Company:', data.companyName || 'NOT FOUND');
+        console.log('      Used selector:', data.selectorsUsed.companySelectorUsed || 'NONE');
+        console.log('   📄 Description length:', data.jobDescription?.length || 0, 'chars');
+        console.log('      Used selector:', data.selectorsUsed.descSelectorUsed || 'NONE');
+        console.log('   📝 Description preview:', data.jobDescription?.substring(0, 300) || 'EMPTY');
 
         return {
           url: request.url,
-          jobTitle,
-          companyName,
-          jobDescription: jobDescription || $('body').text().trim().substring(0, 5000)
+          ...data
         };
-      }
+      },
+      maxRequestsPerCrawl: 1,
+      maxRequestRetries: 2,
+      maxConcurrency: 1
     });
 
     // Wait for actor to finish and get results
+    console.log(`   ⏳ Waiting for Apify to finish...`);
     const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
@@ -248,7 +383,7 @@ async function apifyFetchIndeed(url) {
     if (data.companyName) finalText += `Company: ${data.companyName}\n\n`;
     finalText += `Job Description:\n${data.jobDescription}`;
 
-    console.log(`   ✅ Tier 2 Success (Apify Indeed) - Extracted:`);
+    console.log(`   ✅ Tier 2 Success (Apify Indeed with Browser) - Extracted:`);
     console.log(`      📋 Job Title: ${data.jobTitle || 'Not found'}`);
     console.log(`      🏢 Company: ${data.companyName || 'Not found'}`);
     console.log(`      📄 Description: ${data.jobDescription?.length || 0} chars`);
