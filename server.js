@@ -15,6 +15,9 @@ const mammoth = require('mammoth');
 const supabase = require('./supabase-client');
 const { userOps, usageOps } = require('./supabase-db');
 
+// Import advanced scraping service (feature-flagged)
+const scrapingService = require('./scraping-service');
+
 const app = express();
 let PORT = process.env.PORT || 3000;
 
@@ -615,7 +618,14 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
         // First, fetch the job description from the URL
         let jobDescription;
         try {
-          jobDescription = await fetchJobDescription(jobUrl);
+          // Use hybrid scraping if enabled, otherwise use basic fetch
+          if (process.env.ENABLE_APIFY_SCRAPING === 'true' || process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
+            console.log('🚀 Using HYBRID scraping approach (feature-flagged)');
+            jobDescription = await scrapingService.fetchJobDescriptionHybrid(jobUrl);
+          } else {
+            console.log('📡 Using BASIC scraping approach (default)');
+            jobDescription = await fetchJobDescription(jobUrl);
+          }
 
           // Check if the fetched content is actually valid (not a login page or too short)
           const descriptionOnly = jobDescription.split('Job Description:')[1] || jobDescription;
