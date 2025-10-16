@@ -67,14 +67,36 @@
                 </div>
             </div>
 
+            <!-- Job Input Mode Selection -->
             <div class="form-section">
+                <h2>How would you like to add jobs?</h2>
+                <div class="input-mode-toggle">
+                    <label class="mode-option">
+                        <input type="radio" name="input-mode" value="url" checked onchange="switchInputMode('url')">
+                        <span class="mode-label">
+                            <strong>Use Job URLs</strong>
+                            <small>Automatically extract job details from posting links</small>
+                        </span>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="input-mode" value="manual" onchange="switchInputMode('manual')">
+                        <span class="mode-label">
+                            <strong>Paste Job Descriptions</strong>
+                            <small>Manually enter job title, company, and description</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- URL Mode -->
+            <div id="url-mode-section" class="form-section">
                 <h2>Job URLs</h2>
                 <div id="job-urls-container">
                     <div class="job-url-input" data-index="0">
                         <div class="url-input-wrapper">
                             <input
                                 type="url"
-                                placeholder="Enter job posting URL..."
+                                placeholder="Enter job posting URL (Indeed, LinkedIn, etc.)..."
                                 class="job-url"
                             >
                             <span class="url-status"></span>
@@ -86,6 +108,54 @@
                 </div>
                 <button type="button" id="add-url-btn" onclick="addJobUrl()">
                     + Add Another Job URL
+                </button>
+            </div>
+
+            <!-- Manual Mode -->
+            <div id="manual-mode-section" class="form-section hidden">
+                <h2>Job Descriptions</h2>
+                <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                    For each job, enter the title, company, and paste the full job description.
+                </p>
+                <div id="manual-jobs-container">
+                    <div class="manual-job-card" data-index="0">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h3 style="margin: 0; font-size: 16px; color: #111827;">Job #1</h3>
+                            <button type="button" class="remove-btn" onclick="removeManualJob(this)" style="display: none;">✕</button>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Job Title (e.g., Senior Software Engineer)"
+                            class="manual-job-title"
+                            style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
+                        >
+                        <input
+                            type="text"
+                            placeholder="Company Name (e.g., Microsoft)"
+                            class="manual-job-company"
+                            style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
+                        >
+                        <textarea
+                            placeholder="Paste the full job description here...
+
+Example:
+We are seeking an experienced Senior Software Engineer...
+
+Responsibilities:
+- Design and develop scalable applications
+- Lead technical discussions...
+
+Requirements:
+- 5+ years of experience...
+- Strong knowledge of..."
+                            class="manual-job-description"
+                            rows="12"
+                            style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical;"
+                        ></textarea>
+                    </div>
+                </div>
+                <button type="button" id="add-manual-btn" onclick="addManualJob()">
+                    + Add Another Job
                 </button>
             </div>
 

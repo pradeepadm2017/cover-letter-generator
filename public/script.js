@@ -139,7 +139,7 @@ async function logout() {
 function switchResumeTab(tabType) {
     const textTab = document.getElementById('text-resume-tab');
     const fileTab = document.getElementById('file-resume-tab');
-    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabBtns = document.querySelectorAll('.resume-input-options .tab-btn');
 
     if (tabType === 'text') {
         textTab.classList.add('active');
@@ -158,6 +158,8 @@ function switchResumeTab(tabType) {
     }
     updateGenerateButtonState();
 }
+
+// Removed manual paste tab logic - now handled on dedicated page
 
 // Handle file upload
 async function handleResumeFileUpload(input) {
@@ -289,7 +291,7 @@ function addJobUrl() {
         <div class="url-input-wrapper">
             <input
                 type="url"
-                placeholder="Enter job posting URL..."
+                placeholder="Enter job posting URL (Indeed, LinkedIn, etc.)..."
                 class="job-url"
             >
             <span class="url-status"></span>
@@ -309,24 +311,33 @@ function removeJobUrl(button) {
 }
 
 function getJobUrls() {
-    const jobUrlInputs = document.querySelectorAll('.job-url');
-    const urls = [];
+    // Check which mode is active
+    const urlMode = document.querySelector('input[name="input-mode"][value="url"]').checked;
 
-    jobUrlInputs.forEach(input => {
-        const url = input.value.trim();
-        if (url) {
-            urls.push(url);
-        }
-    });
+    if (urlMode) {
+        // URL mode: get job URLs
+        const jobUrlInputs = document.querySelectorAll('.job-url');
+        const urls = [];
 
-    return urls;
+        jobUrlInputs.forEach(input => {
+            const url = input.value.trim();
+            if (url) {
+                urls.push(url);
+            }
+        });
+
+        return urls;
+    } else {
+        // Manual mode: get manual jobs
+        return getManualJobs();
+    }
 }
 
 function updateGenerateButtonState() {
     const generateBtn = document.getElementById('generate-all-btn');
     const textTab = document.getElementById('text-resume-tab');
     const fileTab = document.getElementById('file-resume-tab');
-    const jobUrls = getJobUrls();
+    const jobData = getJobUrls();
 
     let hasResume = false;
     if (textTab.classList.contains('active')) {
@@ -335,7 +346,7 @@ function updateGenerateButtonState() {
         hasResume = resumeText.length > 0;
     }
 
-    generateBtn.disabled = !(hasResume && jobUrls.length > 0);
+    generateBtn.disabled = !(hasResume && jobData.length > 0);
 }
 
 function getResumeText() {
@@ -345,6 +356,130 @@ function getResumeText() {
     } else {
         return resumeText;
     }
+}
+
+// Switch between URL and Manual input modes
+function switchInputMode(mode) {
+    const urlSection = document.getElementById('url-mode-section');
+    const manualSection = document.getElementById('manual-mode-section');
+
+    if (mode === 'url') {
+        urlSection.classList.remove('hidden');
+        manualSection.classList.add('hidden');
+    } else {
+        urlSection.classList.add('hidden');
+        manualSection.classList.remove('hidden');
+    }
+
+    updateGenerateButtonState();
+}
+
+// Add a manual job input card
+function addManualJob() {
+    const container = document.getElementById('manual-jobs-container');
+    const currentCount = container.querySelectorAll('.manual-job-card').length;
+
+    const jobCard = document.createElement('div');
+    jobCard.className = 'manual-job-card';
+    jobCard.setAttribute('data-index', currentCount);
+    jobCard.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 16px; color: #111827;">Job #${currentCount + 1}</h3>
+            <button type="button" class="remove-btn" onclick="removeManualJob(this)">✕</button>
+        </div>
+        <input
+            type="text"
+            placeholder="Job Title (e.g., Senior Software Engineer)"
+            class="manual-job-title"
+            style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
+        >
+        <input
+            type="text"
+            placeholder="Company Name (e.g., Microsoft)"
+            class="manual-job-company"
+            style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
+        >
+        <textarea
+            placeholder="Paste the full job description here...
+
+Example:
+We are seeking an experienced Senior Software Engineer...
+
+Responsibilities:
+- Design and develop scalable applications
+- Lead technical discussions...
+
+Requirements:
+- 5+ years of experience...
+- Strong knowledge of..."
+            class="manual-job-description"
+            rows="12"
+            style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical;"
+        ></textarea>
+    `;
+
+    container.appendChild(jobCard);
+
+    // Update remove button visibility on first job
+    updateRemoveButtonsVisibility();
+    updateGenerateButtonState();
+}
+
+// Remove a manual job input card
+function removeManualJob(button) {
+    const jobCard = button.closest('.manual-job-card');
+    const container = document.getElementById('manual-jobs-container');
+
+    if (container.querySelectorAll('.manual-job-card').length > 1) {
+        jobCard.remove();
+
+        // Renumber remaining jobs
+        container.querySelectorAll('.manual-job-card').forEach((card, index) => {
+            card.setAttribute('data-index', index);
+            card.querySelector('h3').textContent = `Job #${index + 1}`;
+        });
+
+        updateRemoveButtonsVisibility();
+        updateGenerateButtonState();
+    }
+}
+
+// Update visibility of remove buttons on manual jobs
+function updateRemoveButtonsVisibility() {
+    const container = document.getElementById('manual-jobs-container');
+    const jobCards = container.querySelectorAll('.manual-job-card');
+
+    jobCards.forEach((card, index) => {
+        const removeBtn = card.querySelector('.remove-btn');
+        if (jobCards.length === 1) {
+            removeBtn.style.display = 'none';
+        } else {
+            removeBtn.style.display = 'block';
+        }
+    });
+}
+
+// Get manual jobs from form
+function getManualJobs() {
+    const jobCards = document.querySelectorAll('.manual-job-card');
+    const jobs = [];
+
+    jobCards.forEach((card, index) => {
+        const title = card.querySelector('.manual-job-title').value.trim();
+        const company = card.querySelector('.manual-job-company').value.trim();
+        const description = card.querySelector('.manual-job-description').value.trim();
+
+        if (title && company && description) {
+            jobs.push({
+                isManual: true,
+                title,
+                company,
+                description
+            });
+        }
+    });
+
+    return jobs;
 }
 
 function updateUrlStatus(index, status, tooltip = '') {
@@ -490,55 +625,20 @@ async function generateAllCoverLetters() {
                          result.fallbackReason.includes('login page') ||
                          result.fallbackReason.includes('invalid page'));
 
-                    let helpContent = '';
-                    if (isLoginWall) {
-                        // Non-technical explanation for login walls
-                        helpContent = `
-                            <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 12px; margin-top: 15px; border-radius: 4px;">
-                                <p style="font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 8px;">🔒 Why This Happened</p>
-                                <p style="font-size: 12px; color: #78350f; margin-bottom: 8px;">
-                                    The job posting page requires you to be logged in to view it. Our tool cannot access pages that are behind a login.
-                                </p>
-                                <p style="font-size: 12px; color: #78350f; font-weight: 600; margin-bottom: 4px;">✅ What You Can Do:</p>
-                                <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
-                                    • Try finding the same job on a different job board (Indeed, LinkedIn, Glassdoor, etc.)
-                                </p>
-                                <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
-                                    • Look for a publicly accessible link to this job posting
-                                </p>
-                                <p style="font-size: 12px; color: #78350f;">
-                                    • Some company career sites restrict access - try searching on major job boards instead
-                                </p>
-                            </div>
-                        `;
-                    } else {
-                        // Generic help for other fetch failures
-                        helpContent = `
-                            <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 12px; margin-top: 15px; border-radius: 4px;">
-                                <p style="font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 8px;">💡 What This Means</p>
-                                <p style="font-size: 12px; color: #78350f; margin-bottom: 8px;">
-                                    We couldn't access or read the job posting from this URL. This can happen if the page has restrictions or the link has expired.
-                                </p>
-                                <p style="font-size: 12px; color: #78350f; font-weight: 600; margin-bottom: 4px;">✅ Try This:</p>
-                                <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
-                                    • Check if the URL still works in your browser
-                                </p>
-                                <p style="font-size: 12px; color: #78350f; margin-bottom: 4px;">
-                                    • Make sure the link goes directly to a single job posting
-                                </p>
-                                <p style="font-size: 12px; color: #78350f;">
-                                    • Try refreshing the job page and copying the URL again
-                                </p>
-                            </div>
-                        `;
-                    }
+                    let helpContent = `
+                        <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 12px; margin-top: 15px; border-radius: 4px;">
+                            <p style="font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 8px;">💡 Error Details</p>
+                            <p style="font-size: 12px; color: #78350f; margin-bottom: 8px;">
+                                ${result.fallbackReason || result.error || 'This URL cannot be accessed due to the website\'s policies (login requirements, access restrictions, etc.).'}
+                            </p>
+                        </div>
+                    `;
 
                     coverLetterDiv.innerHTML = `
                         <h3 style="color: #f59e0b;">⚠️ Job ${index + 1} - Cover Letter Not Generated</h3>
                         <p style="color: #f59e0b; font-size: 14px; margin-bottom: 10px;">
                             We couldn't access this job posting.
                         </p>
-                        <p style="font-size: 12px; color: #666;">URL: ${result.jobUrl}</p>
                         ${helpContent}
                     `;
                 } else {
@@ -548,7 +648,6 @@ async function generateAllCoverLetters() {
                     coverLetterDiv.innerHTML = `
                         <h3 style="color: #dc2626;">Error for Job ${index + 1}</h3>
                         <p style="color: #dc2626;">${result.error}</p>
-                        <p style="font-size: 12px; color: #666;">URL: ${result.jobUrl}</p>
                     `;
                 }
 
@@ -833,9 +932,12 @@ window.onclick = function(event) {
 // Event listeners
 document.getElementById('resume').addEventListener('input', updateGenerateButtonState);
 
-// Add event listener for URL inputs
+// Add event listener for URL inputs and manual job inputs
 document.addEventListener('input', function(e) {
-    if (e.target.classList.contains('job-url')) {
+    if (e.target.classList.contains('job-url') ||
+        e.target.classList.contains('manual-job-title') ||
+        e.target.classList.contains('manual-job-company') ||
+        e.target.classList.contains('manual-job-description')) {
         updateGenerateButtonState();
     }
 });

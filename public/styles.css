@@ -1111,3 +1111,123 @@ button {
         min-width: 100%;
     }
 }
+
+/* Input Mode Toggle Styles */
+.input-mode-toggle {
+    display: flex;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.form-section.hidden {
+    display: none;
+}
+
+.mode-option {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: white;
+}
+
+.mode-option:hover {
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.mode-option input[type="radio"] {
+    margin-top: 2px;
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    accent-color: #2563eb;
+}
+
+.mode-option input[type="radio"]:checked + .mode-label {
+    color: #2563eb;
+}
+
+.mode-option .mode-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mode-option .mode-label strong {
+    font-size: 16px;
+    color: #111827;
+}
+
+.mode-option .mode-label small {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: normal;
+}
+
+.mode-option:has(input[type="radio"]:checked) {
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.mode-option:has(input[type="radio"]:checked) .mode-label strong {
+    color: #2563eb;
+}
+
+/* Manual Paste Page Styles */
+.manual-paste-intro {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.manual-paste-intro h1 {
+    color: #111827;
+    font-size: 28px;
+    margin-bottom: 10px;
+}
+
+.manual-job-card {
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: all 0.3s;
+}
+
+.manual-job-card:hover {
+    border-color: #2563eb;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+#add-manual-btn {
+    background-color: #6366f1;
+    color: white;
+    margin-top: 10px;
+}
+
+#add-manual-btn:hover {
+    background-color: #4f46e5;
+}
+
+#generate-btn {
+    background-color: #2563eb;
+    color: white;
+    font-size: 16px;
+    padding: 15px 30px;
+    width: 100%;
+}
+
+#generate-btn:hover:not(:disabled) {
+    background-color: #1d4ed8;
+}
+
+#generate-btn:disabled {
+    background-color: #d1d5db;
+    cursor: not-allowed;
+}

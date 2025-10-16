@@ -253,6 +253,11 @@ app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
+// Route to serve the manual paste page (client-side handles auth)
+app.get('/manual-paste', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'manual-paste.html'));
+});
+
 // Route to handle resume file upload
 app.post('/api/upload-resume', upload.single('resume'), async (req, res) => {
   try {
@@ -596,7 +601,9 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
     const results = [];
 
     for (let i = 0; i < jobUrls.length; i++) {
-      const jobUrl = jobUrls[i];
+      const jobItem = jobUrls[i];
+      const isManualJob = typeof jobItem === 'object' && jobItem.isManual;
+      const jobUrl = isManualJob ? `manual-${i}` : jobItem;
 
       // Check usage limits before processing each URL
       const usageCheck = await usageOps.canGenerate(req.user.id);
@@ -615,26 +622,68 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
         let usedFallback = false;
         let fallbackReason = '';
 
-        // First, fetch the job description from the URL
+        // Get job description (either from URL scraping or manual paste)
         let jobDescription;
-        try {
-          // Use hybrid scraping if enabled, otherwise use basic fetch
-          if (process.env.ENABLE_APIFY_SCRAPING === 'true' || process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
-            console.log('🚀 Using HYBRID scraping approach (feature-flagged)');
-            jobDescription = await scrapingService.fetchJobDescriptionHybrid(jobUrl);
-          } else {
-            console.log('📡 Using BASIC scraping approach (default)');
-            jobDescription = await fetchJobDescription(jobUrl);
+
+        if (isManualJob) {
+          // Manual job - use provided data
+          console.log(`📝 Using manually pasted job data for job ${i + 1}`);
+
+          // Validate description length
+          if (jobItem.description.length < 100) {
+            results.push({
+              jobUrl: jobUrl,
+              success: false,
+              error: 'Job description is too short. Please provide at least 100 characters for a meaningful cover letter.'
+            });
+            continue;
           }
 
-          // Check if the fetched content is actually valid (not a login page or too short)
-          const descriptionOnly = jobDescription.split('Job Description:')[1] || jobDescription;
-          if (descriptionOnly.length < 500 ||
-              descriptionOnly.toLowerCase().includes('sign in') && descriptionOnly.length < 1000 ||
-              descriptionOnly.toLowerCase().includes('keep me logged in')) {
-            console.log(`⚠️ Fetched content appears invalid (too short or login page)`);
+          if (jobItem.description.length > 10000) {
+            results.push({
+              jobUrl: jobUrl,
+              success: false,
+              error: 'Job description is too long. Please keep it under 10,000 characters.'
+            });
+            continue;
+          }
+
+          jobDescription = `Job Title: ${jobItem.title}\n\nCompany: ${jobItem.company}\n\nJob Description:\n${jobItem.description}`;
+        } else {
+          // URL-based job - scrape it
+          try {
+            // Use hybrid scraping if enabled, otherwise use basic fetch
+            if (process.env.ENABLE_APIFY_SCRAPING === 'true' || process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
+              console.log('🚀 Using HYBRID scraping approach (feature-flagged)');
+              jobDescription = await scrapingService.fetchJobDescriptionHybrid(jobUrl);
+            } else {
+              console.log('📡 Using BASIC scraping approach (default)');
+              jobDescription = await fetchJobDescription(jobUrl);
+            }
+
+            // Check if the fetched content is actually valid (not a login page or too short)
+            const descriptionOnly = jobDescription.split('Job Description:')[1] || jobDescription;
+            if (descriptionOnly.length < 500 ||
+                descriptionOnly.toLowerCase().includes('sign in') && descriptionOnly.length < 1000 ||
+                descriptionOnly.toLowerCase().includes('keep me logged in')) {
+              console.log(`⚠️ Fetched content appears invalid (too short or login page)`);
+              usedFallback = true;
+              fallbackReason = 'Could not extract meaningful job description from URL (possible login wall or invalid page)';
+
+              // Skip cover letter generation for fallback cases
+              results.push({
+                jobUrl: jobUrl,
+                success: false,
+                usedFallback: true,
+                fallbackReason: fallbackReason,
+                error: fallbackReason
+              });
+              continue; // Skip to next job URL
+            }
+          } catch (fetchError) {
+            console.log(`⚠️ Failed to fetch job description: ${fetchError.message}`);
             usedFallback = true;
-            fallbackReason = 'Could not extract meaningful job description from URL (possible login wall or invalid page)';
+            fallbackReason = fetchError.message; // Use actual error message instead of generic one
 
             // Skip cover letter generation for fallback cases
             results.push({
@@ -646,20 +695,6 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
             });
             continue; // Skip to next job URL
           }
-        } catch (fetchError) {
-          console.log(`⚠️ Failed to fetch job description: ${fetchError.message}`);
-          usedFallback = true;
-          fallbackReason = 'Could not fetch job description from URL';
-
-          // Skip cover letter generation for fallback cases
-          results.push({
-            jobUrl: jobUrl,
-            success: false,
-            usedFallback: true,
-            fallbackReason: fallbackReason,
-            error: fallbackReason
-          });
-          continue; // Skip to next job URL
         }
 
         // Extract candidate name from resume
@@ -1183,10 +1218,12 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
         await usageOps.incrementUsage(req.user.id);
 
       } catch (error) {
-        console.error(`Error processing job URL ${jobUrl}:`, error);
+        console.error(`Error processing ${isManualJob ? 'manual job' : 'job URL'} ${jobUrl}:`, error);
         results.push({
           jobUrl: jobUrl,
-          error: `Failed to process job URL: ${error.message}`,
+          error: isManualJob
+            ? `Failed to generate cover letter: ${error.message}`
+            : `Failed to process job URL: ${error.message}`,
           success: false
         });
       }

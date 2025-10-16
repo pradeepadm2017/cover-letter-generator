@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Paste - Cover Letter Generator</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="header-logo">
+                    <img src="my-design-page-1.png" alt="FastCoverLetters" class="logo-full">
+                </div>
+                <div class="header-spacer"></div>
+                <div class="user-menu">
+                    <div class="user-info">
+                        <span id="user-email">Loading...</span>
+                        <span id="user-tier" class="tier-badge">Free</span>
+                    </div>
+                    <div class="user-actions">
+                        <button type="button" class="btn-secondary" onclick="window.location.href='/app'">
+                            ← Back to Main
+                        </button>
+                        <button type="button" class="btn-logout" onclick="logout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="manual-paste-intro">
+                <h1>Create Cover Letters Manually</h1>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+                    Use this page when job URLs can't be scraped (LinkedIn, login walls, etc.).
+                    Paste your job descriptions below to generate cover letters.
+                </p>
+            </div>
+
+            <div class="form-section">
+                <h2>Your Resume</h2>
+                <div id="resume-preview" style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 15px; border-radius: 8px; max-height: 200px; overflow-y: auto;">
+                    <p style="color: #666; font-size: 13px;">Loading resume...</p>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Job Descriptions</h2>
+                <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                    Add one or more jobs below. For each job, paste the full job description from the job posting.
+                </p>
+                <div id="manual-jobs-container">
+                    <!-- Jobs will be added here dynamically -->
+                </div>
+                <button type="button" class="btn-secondary" onclick="addManualJob()" style="margin-top: 15px;">
+                    + Add Another Job
+                </button>
+            </div>
+
+            <div class="form-section generate-section">
+                <button
+                    type="button"
+                    id="generate-btn"
+                    onclick="generateManualCoverLetters()"
+                    disabled
+                >
+                    Generate Cover Letters
+                </button>
+                <div id="cover-letters-container">
+                    <!-- Status messages will appear here -->
+                </div>
+            </div>
+        </main>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+
+        <div id="error-message" class="error-message hidden"></div>
+    </div>
+
+    <footer class="app-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <p><strong>FastCoverLetters.com</strong> - AI-powered cover letter generation</p>
+            </div>
+            <div class="footer-section">
+                <p><strong>Support:</strong> 📞 <a href="tel:+14313370047">431-337-0047</a> | ✉️ <a href="mailto:pradeepadm2017@gmail.com">pradeepadm2017@gmail.com</a></p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 FastCoverLetters.com. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="manual-paste.js"></script>
+</body>
+</html>
