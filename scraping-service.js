@@ -778,66 +778,6 @@ async function elutaFetch(url) {
 }
 
 /**
- * WORKOPOLIS: Extract data from JSON-LD structured data
- * Workopolis.com embeds job data in proper JSON-LD format
- */
-async function workopolisFetch(url) {
-  console.log('🍁 Workopolis: Extracting from JSON-LD...');
-
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
-      },
-      timeout: 15000
-    });
-
-    const html = response.data;
-
-    // Extract JSON-LD (Workopolis uses proper JSON, not malformed like Eluta)
-    const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s);
-
-    if (!jsonLdMatch) {
-      throw new Error('JSON-LD not found in Workopolis page');
-    }
-
-    const jsonLd = JSON.parse(jsonLdMatch[1]);
-
-    const jobTitle = jsonLd.title || '';
-    const companyName = jsonLd.hiringOrganization?.name || '';
-    let jobDescription = jsonLd.description || '';
-
-    // Clean HTML from description
-    if (jobDescription.includes('<')) {
-      const $ = require('cheerio').load(jobDescription);
-      jobDescription = $.text().trim().replace(/\s+/g, ' ');
-    }
-
-    console.log('\n✅ Workopolis Success:');
-    console.log('   📋 Job Title:', jobTitle || 'NOT FOUND');
-    console.log('   🏢 Company:', companyName || 'NOT FOUND');
-    console.log('   📄 Description:', jobDescription.length, 'chars');
-
-    if (!jobTitle || !companyName || jobDescription.length < 200) {
-      throw new Error('Incomplete data extracted from Workopolis');
-    }
-
-    // Construct response
-    let finalText = '';
-    if (jobTitle) finalText += `Job Title: ${jobTitle}\n\n`;
-    if (companyName) finalText += `Company: ${companyName}\n\n`;
-    finalText += `Job Description:\n${jobDescription}`;
-
-    return finalText;
-  } catch (error) {
-    console.error(`   ❌ Workopolis extraction failed:`, error.message);
-    throw error;
-  }
-}
-
-/**
  * LINKEDIN GUEST API: Direct access to public job postings
  * No authentication required - uses LinkedIn's public guest endpoints
  */
@@ -1145,6 +1085,9 @@ async function apifyFetchIndeed(url) {
 
   try {
     const client = getApifyClient();
+
+    console.log(`   ⏳ Starting Apify Cheerio Scraper...`);
+
     // Use Cheerio Scraper with proxies - faster and less detectable than browser automation
     const run = await client.actor('apify/cheerio-scraper').call({
       startUrls: [{ url: indeedUrl }],
@@ -1156,81 +1099,62 @@ async function apifyFetchIndeed(url) {
       pageFunction: async function pageFunction(context) {
         const { $, request, body } = context;
 
-    console.log(`   ⏳ Starting Apify with ${APIFY_TIMEOUT_MS/1000}s timeout...`);
+        // DEBUG: Get HTML info
+        const debugInfo = {
+          pageUrl: request.url,
+          bodyLength: body.length,
+          bodyPreview: body.substring(0, 2000),
+          h1Count: $('h1').length,
+          divCount: $('div').length,
+          h1Texts: $('h1').map((i, el) => $(el).text().trim()).get().join(' | '),
+          bodyTextPreview: $('body').text().trim().substring(0, 1000)
+        };
 
-    // Create timeout promise
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Apify timeout after ${APIFY_TIMEOUT_MS/1000} seconds. This website requires additional time to access.`)), APIFY_TIMEOUT_MS)
-    );
-
-    // Create Apify execution promise
-    const apifyPromise = (async () => {
-      const run = await getApifyClient().actor('apify/cheerio-scraper').call({
-        startUrls: [{ url: indeedUrl }],
-        proxyConfiguration: {
-          useApifyProxy: true
-        },
-        maxRequestsPerCrawl: 1,
-        maxRequestRetries: 3,
-        pageFunction: async function pageFunction(context) {
-          const { $, request, body } = context;
-
-          // DEBUG: Get HTML info
-          const debugInfo = {
-            pageUrl: request.url,
-            bodyLength: body.length,
-            bodyPreview: body.substring(0, 2000),
-            h1Count: $('h1').length,
-            divCount: $('div').length,
-            h1Texts: $('h1').map((i, el) => $(el).text().trim()).get().join(' | '),
-            bodyTextPreview: $('body').text().trim().substring(0, 1000)
-          };
-
-          // Extract job title
-          let jobTitle = '';
-          let titleSelectorUsed = '';
-          const titleSelectors = [
-            'h1.jobsearch-JobInfoHeader-title',
-            'h1[class*="jobTitle"]',
-            'h1[class*="JobTitle"]',
-            'h2[class*="jobTitle"]',
-            'span[class*="jobTitle"]',
-            'div[class*="jobTitle"]',
-            'h1',
-            'h2'
-          ];
-          for (const selector of titleSelectors) {
-            const text = $(selector).first().text().trim();
-            if (text && text.length > 5) {
-              jobTitle = text;
-              titleSelectorUsed = selector;
-              break;
-            }
+        // Extract job title
+        let jobTitle = '';
+        let titleSelectorUsed = '';
+        const titleSelectors = [
+          'h1.jobsearch-JobInfoHeader-title',
+          'h1[class*="jobTitle"]',
+          'h1[class*="JobTitle"]',
+          'h2[class*="jobTitle"]',
+          'span[class*="jobTitle"]',
+          'div[class*="jobTitle"]',
+          'h1',
+          'h2'
+        ];
+        for (const selector of titleSelectors) {
+          const text = $(selector).first().text().trim();
+          if (text && text.length > 5) {
+            jobTitle = text;
+            titleSelectorUsed = selector;
+            break;
           }
+        }
 
-          // Extract company name
-          let companyName = '';
-          let companySelectorUsed = '';
-          const companySelectors = [
-            '[data-company-name="true"]',
-            '[class*="CompanyInfo"]',
-            '[class*="companyName"]',
-            '[class*="company-name"]',
-            'span[class*="company"]',
-            'div[class*="company"]'
-          ];
-          for (const selector of companySelectors) {
-            const text = $(selector).first().text().trim();
-            if (text && text.length > 2) {
-              companyName = text;
-              companySelectorUsed = selector;
-              break;
-            }
+        // Extract company name
+        let companyName = '';
+        let companySelectorUsed = '';
+        const companySelectors = [
+          '[data-company-name="true"]',
+          '[class*="CompanyInfo"]',
+          '[class*="companyName"]',
+          '[class*="company-name"]',
+          'span[class*="company"]',
+          'div[class*="company"]'
+        ];
+        for (const selector of companySelectors) {
+          const text = $(selector).first().text().trim();
+          if (text && text.length > 2) {
+            companyName = text;
+            companySelectorUsed = selector;
+            break;
           }
+        }
 
-          // Extract job description
-          let jobDescription = '';
-          let descSelectorUsed = '';
+        // Extract job description
+        let jobDescription = '';
+        let descSelectorUsed = '';
         const descSelectors = [
           '#jobDescriptionText',
           '[id*="jobDescription"]',
