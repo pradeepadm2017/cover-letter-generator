@@ -57,14 +57,19 @@ function getApifyClient() {
 
 // Check if ScraperAPI is enabled (at runtime)
 function isScraperApiEnabled() {
-  const isEnabled = process.env.ENABLE_SCRAPERAPI === 'true' &&
-                    process.env.SCRAPERAPI_KEY &&
-                    process.env.SCRAPERAPI_KEY !== 'YOUR_SCRAPERAPI_KEY_HERE';
+  // Trim all environment variables to remove any whitespace, newlines, etc.
+  const enableFlag = (process.env.ENABLE_SCRAPERAPI || '').trim();
+  const apiKey = (process.env.SCRAPERAPI_KEY || '').trim();
+
+  const isEnabled = enableFlag === 'true' &&
+                    apiKey &&
+                    apiKey !== 'YOUR_SCRAPERAPI_KEY_HERE';
 
   console.log('🔍 ScraperAPI Config Check:');
-  console.log(`   ENABLE_SCRAPERAPI: "${process.env.ENABLE_SCRAPERAPI}" (type: ${typeof process.env.ENABLE_SCRAPERAPI})`);
-  console.log(`   SCRAPERAPI_KEY exists: ${process.env.SCRAPERAPI_KEY ? 'YES' : 'NO'}`);
-  console.log(`   SCRAPERAPI_KEY length: ${process.env.SCRAPERAPI_KEY?.length || 0}`);
+  console.log(`   ENABLE_SCRAPERAPI (raw): "${process.env.ENABLE_SCRAPERAPI}"`);
+  console.log(`   ENABLE_SCRAPERAPI (trimmed): "${enableFlag}"`);
+  console.log(`   SCRAPERAPI_KEY exists: ${apiKey ? 'YES' : 'NO'}`);
+  console.log(`   SCRAPERAPI_KEY length (trimmed): ${apiKey.length}`);
   console.log(`   isEnabled: ${isEnabled}`);
 
   return isEnabled;
@@ -520,7 +525,10 @@ async function workopolisFetch(url) {
     if ((error.message.includes('403') || error.response?.status === 403) && isScraperApiEnabled()) {
       console.log('   🔄 Trying ScraperAPI for Workopolis (blocked by 403)...');
       try {
-        const scraperApiUrl = `http://api.scraperapi.com?api_key=${process.env.SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}`;
+        // Trim API key to ensure no whitespace
+        const apiKey = (process.env.SCRAPERAPI_KEY || '').trim();
+        const scraperApiUrl = `http://api.scraperapi.com?api_key=${apiKey}&url=${encodeURIComponent(url)}`;
+        console.log(`   🔗 ScraperAPI URL: ${scraperApiUrl.substring(0, 50)}...`);
         const response = await axios.get(scraperApiUrl, {
           timeout: 60000
         });
