@@ -9,11 +9,9 @@
  *                   Direct access to public LinkedIn job postings
  *                   No authentication required!
  *
- * INDEED SPECIAL: 3-Tier Apify Approach for optimal cost/reliability
+ * INDEED SPECIAL: 2-Tier Approach for optimal cost/reliability
  *                 1. Embedded _initialData extraction (FREE) - ~60-70% success
  *                 2. Apify Cheerio (~$0.001/request) - Fast HTTP scraping
- *                 3. Apify Playwright (~$0.002-0.003/request) - Browser with JS
- *                 4. Apify Puppeteer (~$0.002-0.003/request) - Full browser control
  *
  * GLASSDOOR SPECIAL: Apollo GraphQL cache extraction (FREE) - ~70-80% success rate
  *                    Extracts from apolloState or window.appCache embedded data
@@ -28,16 +26,16 @@
  *                     Direct HTTP fetch with enhanced headers
  *
  * Tier 1: Enhanced basic fetch (FREE) - ~30% success with other sites
- * Tier 2: Apify (Cheerio/Playwright) - ~$0.001-0.003 per request
- *         Cheerio for standard sites, Playwright for JS-heavy sites
- * Tier 3: Apify Puppeteer - ~$0.002-0.003 per request
- *         Full browser control for maximum coverage
+ * Tier 2: Apify Cheerio - ~$0.001 per request
+ *         Fast HTTP scraping for standard sites
+ * Tier 3: ScraperAPI - ~$0.001 per request
+ *         Universal fallback with rotating proxies
  *
  * For Google Jobs: Auto-redirects to source (LinkedIn > Indeed priority)
  * For LinkedIn: Guest API is used automatically (no config needed)
- * For Indeed: 4-tier approach (Embedded JSON → Cheerio → Playwright → Puppeteer)
+ * For Indeed: 2-tier approach (Embedded JSON → Cheerio)
  * For Glassdoor: Apollo GraphQL extraction tried first (no config needed)
- * For Others: Tier 1 → Tier 2 (Apify) → Tier 3 (Puppeteer)
+ * For Others: Tier 1 → Tier 2 (Apify Cheerio) → Tier 3 (ScraperAPI)
  */
 
 const axios = require('axios');
@@ -882,85 +880,127 @@ async function linkedInGuestApiFetch(url) {
 }
 
 /**
- * TIER 2: Advanced Scraping (ScraperAPI or Apify)
- * Uses specialized services for job boards
+ * ScraperAPI: Universal fallback scraper for all sites
+ * Simple HTTP proxy with rotating IPs - works for most sites
+ */
+async function scraperApiFetch(url) {
+  const scraperApiKey = (process.env.SCRAPERAPI_KEY || '').trim();
+
+  if (!scraperApiKey) {
+    throw new Error('ScraperAPI key not configured');
+  }
+
+  console.log('🌐 Using ScraperAPI...');
+
+  const scraperApiUrl = `http://api.scraperapi.com?api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
+
+  try {
+    const response = await axios.get(scraperApiUrl, {
+      timeout: 60000 // ScraperAPI can take longer
+    });
+
+    const $ = cheerio.load(response.data);
+
+    // Remove unwanted elements
+    $('script, style, nav, header, footer, .cookie-banner, .cookies, .gdpr, .privacy-notice, .advertisement').remove();
+
+    // Extract job title
+    let jobTitle = '';
+    const titleSelectors = [
+      'h1.jobsearch-JobInfoHeader-title',
+      'h1[class*="jobTitle"]',
+      'h1[class*="JobTitle"]',
+      'h1',
+      '.job-title',
+      '[data-automation="job-title"]'
+    ];
+    for (const selector of titleSelectors) {
+      const text = $(selector).first().text().trim();
+      if (text && text.length > 5 && text.length < 200) {
+        jobTitle = text;
+        break;
+      }
+    }
+
+    // Extract company name
+    let companyName = '';
+    const companySelectors = [
+      '[data-company-name="true"]',
+      '[class*="CompanyInfo"]',
+      '[class*="companyName"]',
+      '.company-name',
+      '.employer-name'
+    ];
+    for (const selector of companySelectors) {
+      const text = $(selector).first().text().trim();
+      if (text && text.length > 2 && text.length < 100) {
+        companyName = text;
+        break;
+      }
+    }
+
+    // Extract job description
+    let jobDescription = '';
+    const descSelectors = [
+      '#jobDescriptionText',
+      '[id*="jobDescription"]',
+      '[class*="jobDescription"]',
+      '.job-description',
+      '.description',
+      'main',
+      'article'
+    ];
+    for (const selector of descSelectors) {
+      const text = $(selector).text().trim();
+      if (text && text.length > 200) {
+        jobDescription = text;
+        break;
+      }
+    }
+
+    // Fallback to body
+    if (!jobDescription || jobDescription.length < 200) {
+      jobDescription = $('body').text().trim();
+    }
+
+    // Clean up whitespace
+    jobDescription = jobDescription.replace(/\s+/g, ' ').trim();
+
+    console.log('   ✅ ScraperAPI Success');
+    console.log('   📋 Job Title:', jobTitle || 'NOT FOUND');
+    console.log('   🏢 Company:', companyName || 'NOT FOUND');
+    console.log('   📄 Description:', jobDescription.length, 'chars');
+
+    // Construct response
+    let finalText = '';
+    if (jobTitle) finalText += `Job Title: ${jobTitle}\n\n`;
+    if (companyName) finalText += `Company: ${companyName}\n\n`;
+    finalText += `Job Description:\n${jobDescription}`;
+
+    return finalText;
+  } catch (error) {
+    console.error('   ❌ ScraperAPI failed:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * TIER 2: Advanced Scraping (Apify Cheerio only)
+ * Uses Apify Cheerio Scraper for fast HTTP scraping
  */
 async function tier2_apifyFetch(url) {
-  console.log('🚀 Tier 2: Trying advanced scraping...');
+  console.log('🚀 Tier 2: Trying Apify Cheerio scraping...');
 
-  // Detect job board and use appropriate scraper
+  // For Indeed, use dedicated Cheerio scraper
   if (url.includes('indeed.com')) {
-    return await fetchIndeed(url);
-  } else if (url.includes('linkedin.com')) {
-    return await apifyFetchLinkedIn(url);
+    return await apifyFetchIndeedCheerio(url);
   } else {
-    // Use generic web scraper for other sites
+    // Use generic Cheerio scraper for other sites
     return await apifyFetchGeneric(url);
   }
 }
 
 
-/**
- * Fetch Indeed job - 3-tier Apify approach: Cheerio -> Playwright -> Puppeteer
- */
-async function fetchIndeed(url) {
-  if (!getApifyClient()) {
-    throw new Error('Apify client not available - Indeed scraping requires Apify');
-  }
-
-  // Tier 1: Try Cheerio first (fastest, cheapest ~$0.001/request)
-  try {
-    console.log('🔄 Indeed Tier 1: Trying Cheerio (fast HTTP)...');
-    const result = await apifyFetchIndeedCheerio(url);
-
-    // Validate content before returning
-    if (validateExtractedContent(result)) {
-      console.log('✅ Indeed Tier 1 SUCCESS (Cheerio)\n');
-      return result;
-    }
-
-    throw new Error('Cheerio returned invalid/empty content');
-  } catch (error) {
-    console.log(`   ⚠️  Indeed Tier 1 (Cheerio) failed: ${error.message}`);
-    console.log('   🔄 Falling back to Tier 2 (Playwright)...\n');
-  }
-
-  // Tier 2: Try Playwright (more reliable, ~$0.002-0.003/request)
-  try {
-    console.log('🔄 Indeed Tier 2: Trying Playwright (browser with JS)...');
-    const result = await apifyFetchIndeedPlaywright(url);
-
-    // Validate content before returning
-    if (validateExtractedContent(result)) {
-      console.log('✅ Indeed Tier 2 SUCCESS (Playwright)\n');
-      return result;
-    }
-
-    throw new Error('Playwright returned invalid/empty content');
-  } catch (error) {
-    console.log(`   ⚠️  Indeed Tier 2 (Playwright) failed: ${error.message}`);
-    console.log('   🔄 Falling back to Tier 3 (Puppeteer)...\n');
-  }
-
-  // Tier 3: Try Puppeteer (last resort, ~$0.002-0.003/request)
-  try {
-    console.log('🔄 Indeed Tier 3: Trying Puppeteer (full browser)...');
-    const result = await apifyFetchWithPuppeteer(url);
-
-    // Validate content before returning
-    if (validateExtractedContent(result)) {
-      console.log('✅ Indeed Tier 3 SUCCESS (Puppeteer)\n');
-      return result;
-    }
-
-    throw new Error('Puppeteer returned invalid/empty content');
-  } catch (error) {
-    console.log(`   ❌ Indeed Tier 3 (Puppeteer) failed: ${error.message}\n`);
-  }
-
-  // All tiers failed
-  throw new Error('All scraping methods failed for Indeed. The page may have strong anti-bot protection.');
-}
 
 /**
  * Apify: Indeed-specific scraping with Cheerio (fast, HTTP-based)
@@ -1124,184 +1164,6 @@ async function apifyFetchIndeedCheerio(url) {
   }
 }
 
-/**
- * Apify: Indeed-specific scraping with Playwright (browser-based, JavaScript rendering)
- */
-async function apifyFetchIndeedPlaywright(url) {
-  console.log('   🎭 Using Apify Playwright for Indeed (browser with JS rendering)...');
-
-  // Extract job key from URL (supports both jk= and vjk= parameters)
-  const vjkMatch = url.match(/[?&](?:v)?jk=([a-f0-9]+)/i);
-  if (!vjkMatch) {
-    throw new Error('Could not extract Indeed job key from URL');
-  }
-
-  const jobKey = vjkMatch[1];
-  const country = url.includes('ca.indeed.com') ? 'CA' : 'US';
-  const indeedUrl = `https://${country === 'CA' ? 'ca' : 'www'}.indeed.com/viewjob?jk=${jobKey}`;
-
-  console.log(`   🔗 Indeed URL: ${indeedUrl}`);
-
-  try {
-    const client = getApifyClient();
-
-    console.log(`   ⏳ Starting Apify Playwright Web Scraper...`);
-
-    // Use Playwright Web Scraper - executes JavaScript for dynamic content
-    const run = await client.actor('apify/web-scraper').call({
-      startUrls: [{ url: indeedUrl }],
-      proxyConfiguration: {
-        useApifyProxy: true
-      },
-      maxRequestsPerCrawl: 1,
-      maxRequestRetries: 2,
-      pageFunction: async function pageFunction({ page, request }) {
-        // Wait for page to fully load including JavaScript
-        await page.waitForLoadState('networkidle');
-
-        // Wait for content to render
-        await page.waitForTimeout(3000);
-
-        // Extract job title
-        let jobTitle = '';
-        let titleSelectorUsed = '';
-        const titleSelectors = [
-          'h1.jobsearch-JobInfoHeader-title',
-          'h1[class*="jobTitle"]',
-          'h1[class*="JobTitle"]',
-          'h2[class*="jobTitle"]',
-          'span[class*="jobTitle"]',
-          'h1',
-          'h2'
-        ];
-
-        for (const selector of titleSelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await element.textContent();
-              if (text && text.trim().length > 5 && text.trim().length < 200) {
-                jobTitle = text.trim();
-                titleSelectorUsed = selector;
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Extract company name
-        let companyName = '';
-        let companySelectorUsed = '';
-        const companySelectors = [
-          '[data-company-name="true"]',
-          '[class*="CompanyInfo"]',
-          '[class*="companyName"]',
-          '[class*="company-name"]',
-          'span[class*="company"]',
-          'div[class*="company"]'
-        ];
-
-        for (const selector of companySelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await element.textContent();
-              if (text && text.trim().length > 2 && text.trim().length < 100) {
-                companyName = text.trim();
-                companySelectorUsed = selector;
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Extract job description
-        let jobDescription = '';
-        let descSelectorUsed = '';
-        const descSelectors = [
-          '#jobDescriptionText',
-          '[id*="jobDescription"]',
-          '[class*="jobDescriptionText"]',
-          '[class*="jobDescription"]',
-          '[class*="job-description"]',
-          'div[class*="description"]',
-          'section[class*="description"]',
-          'main'
-        ];
-
-        for (const selector of descSelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await element.textContent();
-              if (text && text.trim().length > 200) {
-                jobDescription = text.trim();
-                descSelectorUsed = selector;
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Fallback to body text if description not found
-        if (!jobDescription || jobDescription.length < 200) {
-          jobDescription = await page.textContent('body');
-          descSelectorUsed = 'body (fallback)';
-        }
-
-        // Clean up whitespace
-        jobDescription = jobDescription.replace(/\s+/g, ' ').trim();
-
-        return {
-          url: request.url,
-          jobTitle,
-          companyName,
-          jobDescription: jobDescription.substring(0, 10000),
-          selectorsUsed: {
-            titleSelectorUsed,
-            companySelectorUsed,
-            descSelectorUsed
-          }
-        };
-      }
-    });
-
-    // Wait for actor to finish and get results
-    console.log(`   ⏳ Waiting for Playwright to finish...`);
-    const { items } = await client.dataset(run.defaultDatasetId).listItems();
-
-    if (!items || items.length === 0) {
-      throw new Error('Playwright returned no results');
-    }
-
-    const data = items[0];
-
-    console.log('\n🎯 Apify Playwright Extraction Results:');
-    console.log('   📋 Job Title:', data.jobTitle || 'NOT FOUND');
-    console.log('      Used selector:', data.selectorsUsed?.titleSelectorUsed || 'NONE');
-    console.log('   🏢 Company:', data.companyName || 'NOT FOUND');
-    console.log('      Used selector:', data.selectorsUsed?.companySelectorUsed || 'NONE');
-    console.log('   📄 Description length:', data.jobDescription?.length || 0, 'chars');
-    console.log('      Used selector:', data.selectorsUsed?.descSelectorUsed || 'NONE');
-
-    // Construct response
-    let finalText = '';
-    if (data.jobTitle) finalText += `Job Title: ${data.jobTitle}\n\n`;
-    if (data.companyName) finalText += `Company: ${data.companyName}\n\n`;
-    finalText += `Job Description:\n${data.jobDescription}`;
-
-    return finalText;
-  } catch (error) {
-    console.error(`   ❌ Apify Playwright Failed (Indeed):`, error.message);
-    throw error;
-  }
-}
 
 /**
  * Apify: LinkedIn-specific scraping
@@ -1316,22 +1178,12 @@ async function apifyFetchLinkedIn(url) {
 
 /**
  * Apify: Generic web scraper for other sites
- * Uses Playwright for JavaScript-heavy sites (The Ladders, etc.)
+ * Uses Cheerio for fast HTTP scraping
  */
 async function apifyFetchGeneric(url) {
-  console.log('   📍 Using Apify generic web scraper...');
+  console.log('   📍 Using Apify Cheerio scraper...');
 
-  // Detect if this is a JavaScript-heavy site that needs Playwright
-  const needsJavaScript = url.includes('theladders.com') ||
-                         url.includes('lever.co') ||
-                         url.includes('greenhouse.io');
-
-  if (needsJavaScript) {
-    console.log('   🎭 JavaScript-heavy site detected - using Playwright...');
-    return await apifyFetchWithPlaywright(url);
-  }
-
-  // Use Cheerio for standard sites (faster and cheaper)
+  // Use Cheerio for all sites (fast and cost-effective)
   try {
     const client = getApifyClient();
     const run = await client.actor('apify/cheerio-scraper').call({
@@ -1388,320 +1240,14 @@ async function apifyFetchGeneric(url) {
   }
 }
 
-/**
- * Apify: Playwright-based scraper for JavaScript-heavy sites
- * Executes JavaScript and waits for dynamic content to load
- */
-async function apifyFetchWithPlaywright(url) {
-  console.log('   🎭 Using Playwright Web Scraper with JS rendering...');
-
-  try {
-    const run = await getApifyClient().actor('apify/web-scraper').call({
-      startUrls: [{ url }],
-      maxRequestsPerCrawl: 1,
-      maxRequestRetries: 2,
-      proxyConfiguration: {
-        useApifyProxy: true
-      },
-      pageFunction: async function pageFunction({ page, request }) {
-        // Wait for page to fully load including JavaScript
-        await page.waitForLoadState('networkidle');
-
-        // Wait for common job posting elements
-        await page.waitForTimeout(3000); // Give JS time to render
-
-        // Extract job title - try multiple selectors
-        let jobTitle = '';
-        const titleSelectors = [
-          'h1',
-          '[data-test="job-title"]',
-          '[class*="job-title"]',
-          '[class*="jobTitle"]',
-          '[class*="JobTitle"]',
-          '.title',
-          'header h1'
-        ];
-
-        for (const selector of titleSelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await element.textContent();
-              if (text && text.trim().length > 5 && text.trim().length < 200) {
-                jobTitle = text.trim();
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Extract company name
-        let companyName = '';
-        const companySelectors = [
-          '[data-test="company-name"]',
-          '[class*="company-name"]',
-          '[class*="companyName"]',
-          '[class*="employer"]',
-          '.company',
-          'header a'
-        ];
-
-        for (const selector of companySelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await element.textContent();
-              if (text && text.trim().length > 2 && text.trim().length < 100) {
-                companyName = text.trim();
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Extract job description
-        let jobDescription = '';
-        const descSelectors = [
-          '[data-test="job-description"]',
-          '[class*="job-description"]',
-          '[class*="jobDescription"]',
-          '[class*="description"]',
-          'main',
-          'article',
-          '.content'
-        ];
-
-        for (const selector of descSelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await element.textContent();
-              if (text && text.trim().length > 200) {
-                jobDescription = text.trim();
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Fallback to body if nothing found
-        if (!jobDescription || jobDescription.length < 200) {
-          jobDescription = await page.textContent('body');
-        }
-
-        // Clean up whitespace
-        jobDescription = jobDescription.replace(/\s+/g, ' ').trim();
-
-        return {
-          url: request.url,
-          jobTitle,
-          companyName,
-          jobDescription: jobDescription.substring(0, 10000) // Limit size
-        };
-      }
-    });
-
-    const { items } = await getApifyClient().dataset(run.defaultDatasetId).listItems();
-
-    if (!items || items.length === 0) {
-      throw new Error('Playwright scraper returned no results');
-    }
-
-    const data = items[0];
-
-    // Validate that we got meaningful data
-    if (!data.jobTitle && data.jobDescription && data.jobDescription.length < 500) {
-      throw new Error('Could not extract job information - content too limited');
-    }
-
-    let finalText = '';
-    if (data.jobTitle) finalText += `Job Title: ${data.jobTitle}\n\n`;
-    if (data.companyName) finalText += `Company: ${data.companyName}\n\n`;
-    finalText += `Job Description:\n${data.jobDescription}`;
-
-    console.log(`   ✅ Playwright Success - Extracted:`);
-    console.log(`      📋 Job Title: ${data.jobTitle || 'Not found'}`);
-    console.log(`      🏢 Company: ${data.companyName || 'Not found'}`);
-    console.log(`      📄 Description: ${data.jobDescription?.length || 0} chars`);
-
-    return finalText;
-  } catch (error) {
-    console.error(`   ❌ Playwright scraper failed:`, error.message);
-    throw error;
-  }
-}
 
 /**
- * Apify: Puppeteer-based scraper for stubborn sites (Tier 3)
- * Uses Apify's Puppeteer Scraper actor - more robust than Playwright
+ * TIER 3: ScraperAPI Fallback
+ * Universal fallback with rotating proxies
  */
-async function apifyFetchWithPuppeteer(url) {
-  console.log('   🤖 Using Apify Puppeteer Scraper (full browser control)...');
-
-  try {
-    const client = getApifyClient();
-
-    console.log(`   ⏳ Starting Apify Puppeteer Scraper...`);
-
-    // Use Puppeteer Scraper - maximum control and compatibility
-    const run = await client.actor('apify/puppeteer-scraper').call({
-      startUrls: [{ url }],
-      proxyConfiguration: {
-        useApifyProxy: true
-      },
-      maxRequestsPerCrawl: 1,
-      maxRequestRetries: 2,
-      pageFunction: async function pageFunction({ page, request }) {
-        // Wait for page to fully load
-        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
-
-        // Additional wait for JavaScript
-        await page.waitForTimeout(4000);
-
-        // Extract job title - try multiple selectors
-        let jobTitle = '';
-        const titleSelectors = [
-          'h1',
-          '[data-test="job-title"]',
-          '[class*="job-title"]',
-          '[class*="jobTitle"]',
-          '[class*="JobTitle"]',
-          '.title',
-          'header h1',
-          'h2'
-        ];
-
-        for (const selector of titleSelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await page.evaluate(el => el.textContent, element);
-              if (text && text.trim().length > 5 && text.trim().length < 200) {
-                jobTitle = text.trim();
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Extract company name
-        let companyName = '';
-        const companySelectors = [
-          '[data-test="company-name"]',
-          '[data-company-name="true"]',
-          '[class*="company-name"]',
-          '[class*="companyName"]',
-          '[class*="CompanyInfo"]',
-          '[class*="employer"]',
-          '.company',
-          'header a'
-        ];
-
-        for (const selector of companySelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await page.evaluate(el => el.textContent, element);
-              if (text && text.trim().length > 2 && text.trim().length < 100) {
-                companyName = text.trim();
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Extract job description
-        let jobDescription = '';
-        const descSelectors = [
-          '[data-test="job-description"]',
-          '#jobDescriptionText',
-          '[id*="jobDescription"]',
-          '[class*="job-description"]',
-          '[class*="jobDescription"]',
-          '[class*="jobDescriptionText"]',
-          '[class*="description"]',
-          'main',
-          'article',
-          '.content'
-        ];
-
-        for (const selector of descSelectors) {
-          try {
-            const element = await page.$(selector);
-            if (element) {
-              const text = await page.evaluate(el => el.textContent, element);
-              if (text && text.trim().length > 200) {
-                jobDescription = text.trim();
-                break;
-              }
-            }
-          } catch (e) {
-            // Selector not found, try next
-          }
-        }
-
-        // Fallback to body if nothing found
-        if (!jobDescription || jobDescription.length < 200) {
-          jobDescription = await page.evaluate(() => document.body.textContent);
-        }
-
-        // Clean up whitespace
-        jobDescription = jobDescription.replace(/\s+/g, ' ').trim();
-
-        return {
-          url: request.url,
-          jobTitle,
-          companyName,
-          jobDescription: jobDescription.substring(0, 10000) // Limit size
-        };
-      }
-    });
-
-    // Wait for actor to finish and get results
-    console.log(`   ⏳ Waiting for Puppeteer to finish...`);
-    const { items } = await client.dataset(run.defaultDatasetId).listItems();
-
-    if (!items || items.length === 0) {
-      throw new Error('Puppeteer scraper returned no results');
-    }
-
-    const data = items[0];
-
-    console.log('\n🎯 Apify Puppeteer Extraction Results:');
-    console.log('   📋 Job Title:', data.jobTitle || 'NOT FOUND');
-    console.log('   🏢 Company:', data.companyName || 'NOT FOUND');
-    console.log('   📄 Description length:', data.jobDescription?.length || 0, 'chars');
-
-    // Construct response
-    let finalText = '';
-    if (data.jobTitle) finalText += `Job Title: ${data.jobTitle}\n\n`;
-    if (data.companyName) finalText += `Company: ${data.companyName}\n\n`;
-    finalText += `Job Description:\n${data.jobDescription}`;
-
-    return finalText;
-  } catch (error) {
-    console.error(`   ❌ Apify Puppeteer Failed:`, error.message);
-    throw error;
-  }
-}
-
-/**
- * TIER 3: Puppeteer Fallback
- * Routes to Apify Puppeteer actor
- */
-async function tier3_puppeteerFetch(url) {
-  console.log('🎭 Tier 3: Trying Puppeteer (via Apify)...');
-  return await apifyFetchWithPuppeteer(url);
+async function tier3_scraperApiFetch(url) {
+  console.log('🌐 Tier 3: Trying ScraperAPI (rotating proxies)...');
+  return await scraperApiFetch(url);
 }
 
 /**
@@ -1892,14 +1438,14 @@ async function fetchJobDescriptionHybrid(url) {
     }
   }
 
-  // TIER 3: Puppeteer (only if enabled - future implementation)
-  const enablePuppeteer = (process.env.ENABLE_PUPPETEER_FALLBACK || '').trim();
-  if (enablePuppeteer === 'true') {
+  // TIER 3: ScraperAPI (only if enabled)
+  const enableScraperApi = (process.env.ENABLE_SCRAPERAPI || '').trim();
+  if (enableScraperApi === 'true') {
     try {
-      const result = await tier3_puppeteerFetch(url);
+      const result = await tier3_scraperApiFetch(url);
       if (validateExtractedContent(result)) {
-        console.log('✅ Tier 3 SUCCESS - Using Puppeteer result\n');
-        return { content: result, method: 'puppeteer' };
+        console.log('✅ Tier 3 SUCCESS - Using ScraperAPI result\n');
+        return { content: result, method: 'scraperapi' };
       }
     } catch (error) {
       console.log(`⚠️  Tier 3 failed: ${error.message}`);
