@@ -1262,6 +1262,35 @@ async function fetchJobDescriptionHybrid(url) {
     console.log('⚠️  Tier 1 result invalid, trying next tier...');
   } catch (error) {
     console.log(`⚠️  Tier 1 failed: ${error.message}, trying next tier...`);
+
+    // SMART BLOCKING DETECTION: Fail fast for known-blocked sites only
+    // Note: HTTP 403 is NORMAL for many sites (Indeed, LinkedIn, etc.) - Apify with proxies can bypass it
+    // Only block sites where Apify also fails consistently (The Ladders, etc.)
+    const domain = new URL(url).hostname;
+    const isHttp403 = error.message.includes('403') || error.response?.status === 403;
+    const isHttp999 = error.message.includes('999') || error.response?.status === 999;
+
+    // Known sites where even Apify can't help (exhausted all options)
+    const knownBlockedSites = [
+      'theladders.com'
+      // Add more as we discover them
+    ];
+
+    const isKnownBlocked = knownBlockedSites.some(site => domain.includes(site));
+
+    if ((isHttp403 || isHttp999) && isKnownBlocked) {
+      console.log(`🚫 ${domain} is on known-blocked list (HTTP ${isHttp403 ? '403' : '999'})`);
+      console.log('   💡 This site consistently blocks all scraping methods including Apify');
+      console.log('   ⏰ Failing fast to save time & cost\n');
+
+      throw new Error(
+        `${domain} appears to be blocking automated access. ` +
+        `This is common with certain job boards after repeated requests. ` +
+        `Please use the "Manual Paste" feature instead, or try again in 1-2 hours when the block may reset.`
+      );
+    }
+
+    // For other sites with 403/999, continue to Tier 2 - Apify with proxies might work
   }
 
   // TIER 2: Apify (only if enabled)
