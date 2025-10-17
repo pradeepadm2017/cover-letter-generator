@@ -381,6 +381,26 @@ app.get('/api/user-activity', async (req, res) => {
   }
 });
 
+app.get('/api/top-users', async (req, res) => {
+  try {
+    const topUsers = await analyticsOps.getTopUsers();
+    res.json(topUsers);
+  } catch (error) {
+    console.error('Error fetching top users:', error);
+    res.status(500).json({ error: 'Failed to fetch top users' });
+  }
+});
+
+app.get('/api/user-segmentation', async (req, res) => {
+  try {
+    const segmentation = await analyticsOps.getUserSegmentation();
+    res.json(segmentation);
+  } catch (error) {
+    console.error('Error fetching user segmentation:', error);
+    res.status(500).json({ error: 'Failed to fetch user segmentation' });
+  }
+});
+
 // Route to handle resume file upload
 app.post('/api/upload-resume', upload.single('resume'), async (req, res) => {
   try {

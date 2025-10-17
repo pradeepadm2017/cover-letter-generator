@@ -326,6 +326,14 @@
         <!-- User Activity Section -->
         <h2 class="section-title">👥 User Activity</h2>
         <div id="userActivityContent" class="loading">Loading user activity...</div>
+
+        <!-- Top Users Section -->
+        <h2 class="section-title">🏆 Top 10 Users (Past 30 Days)</h2>
+        <div id="topUsersContent" class="loading">Loading top users...</div>
+
+        <!-- User Segmentation Section -->
+        <h2 class="section-title">📊 User Segmentation (Past 30 Days)</h2>
+        <div id="userSegmentationContent" class="loading">Loading user segmentation...</div>
     </div>
 
     <script>
@@ -354,7 +362,12 @@
         });
 
         async function loadAllAnalytics() {
-            await Promise.all([loadScrapingAnalytics(), loadUserActivity()]);
+            await Promise.all([
+                loadScrapingAnalytics(),
+                loadUserActivity(),
+                loadTopUsers(),
+                loadUserSegmentation()
+            ]);
         }
 
         async function loadScrapingAnalytics() {
@@ -876,6 +889,126 @@
                                 ${paidTableRows}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadTopUsers() {
+            try {
+                const response = await fetch('/api/top-users');
+                if (!response.ok) throw new Error('Failed to fetch top users');
+
+                const result = await response.json();
+                displayTopUsers(result.data);
+            } catch (error) {
+                document.getElementById('topUsersContent').innerHTML = `
+                    <div class="error">
+                        <h2>Error Loading Top Users</h2>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayTopUsers(users) {
+            if (users.length === 0) {
+                document.getElementById('topUsersContent').innerHTML = `
+                    <div class="no-data">
+                        <h2>No Data Yet</h2>
+                        <p>Top users will appear here once cover letters are generated.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let tableRows = '';
+            users.forEach((user, index) => {
+                const rankBadge = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}`;
+                tableRows += `
+                    <tr>
+                        <td style="font-size: 1.2rem; font-weight: bold;">${rankBadge}</td>
+                        <td style="color: #333;">${user.userId}</td>
+                        <td class="metric-value success-rate">${user.successfulRuns}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('topUsersContent').innerHTML = `
+                <div class="user-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>User ID</th>
+                                <th>Successful Runs</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        async function loadUserSegmentation() {
+            try {
+                const response = await fetch('/api/user-segmentation');
+                if (!response.ok) throw new Error('Failed to fetch user segmentation');
+
+                const segmentation = await response.json();
+                displayUserSegmentation(segmentation);
+            } catch (error) {
+                document.getElementById('userSegmentationContent').innerHTML = `
+                    <div class="error">
+                        <h2>Error Loading User Segmentation</h2>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayUserSegmentation(segmentation) {
+            const totalUsers = segmentation.tier1 + segmentation.tier2 + segmentation.tier3 + segmentation.tier4;
+
+            if (totalUsers === 0) {
+                document.getElementById('userSegmentationContent').innerHTML = `
+                    <div class="no-data">
+                        <h2>No Data Yet</h2>
+                        <p>User segmentation will appear here once cover letters are generated.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            document.getElementById('userSegmentationContent').innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>< 10 Runs</h3>
+                        <div class="value">${segmentation.tier1}</div>
+                        <p style="color: #666; margin-top: 10px;">${totalUsers > 0 ? ((segmentation.tier1/totalUsers)*100).toFixed(1) : 0}% of users</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>11-30 Runs</h3>
+                        <div class="value">${segmentation.tier2}</div>
+                        <p style="color: #666; margin-top: 10px;">${totalUsers > 0 ? ((segmentation.tier2/totalUsers)*100).toFixed(1) : 0}% of users</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>31-100 Runs</h3>
+                        <div class="value">${segmentation.tier3}</div>
+                        <p style="color: #666; margin-top: 10px;">${totalUsers > 0 ? ((segmentation.tier3/totalUsers)*100).toFixed(1) : 0}% of users</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>> 100 Runs</h3>
+                        <div class="value">${segmentation.tier4}</div>
+                        <p style="color: #666; margin-top: 10px;">${totalUsers > 0 ? ((segmentation.tier4/totalUsers)*100).toFixed(1) : 0}% of users</p>
+                    </div>
+                </div>
+                <div class="month-section" style="margin-top: 20px;">
+                    <div class="month-header">
+                        <h2>Total Active Users</h2>
+                        <div class="total">${totalUsers} Users</div>
                     </div>
                 </div>
             `;

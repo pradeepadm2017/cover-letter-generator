@@ -382,6 +382,104 @@ const analyticsOps = {
       console.error('Error getting user activity:', err);
       return { data: [] };
     }
+  },
+
+  // Get top 10 users by successful cover letter generations
+  getTopUsers: async () => {
+    try {
+      // Get all successful generations from the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from('generation_analytics')
+        .select('user_id, success')
+        .eq('success', true)
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      if (error) {
+        console.error('Error getting top users:', error);
+        return { data: [] };
+      }
+
+      // Count successful runs per user
+      const userCounts = {};
+      data.forEach(row => {
+        const userId = row.user_id;
+        userCounts[userId] = (userCounts[userId] || 0) + 1;
+      });
+
+      // Convert to array and sort by count
+      const topUsers = Object.entries(userCounts)
+        .map(([userId, count]) => ({ userId, successfulRuns: count }))
+        .sort((a, b) => b.successfulRuns - a.successfulRuns)
+        .slice(0, 10); // Top 10
+
+      return { data: topUsers };
+    } catch (err) {
+      console.error('Error getting top users:', err);
+      return { data: [] };
+    }
+  },
+
+  // Get user segmentation by usage tiers in past 30 days
+  getUserSegmentation: async () => {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from('generation_analytics')
+        .select('user_id')
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      if (error) {
+        console.error('Error getting user segmentation:', error);
+        return {
+          tier1: 0,  // < 10 runs
+          tier2: 0,  // 11-30 runs
+          tier3: 0,  // 31-100 runs
+          tier4: 0   // > 100 runs
+        };
+      }
+
+      // Count runs per user
+      const userCounts = {};
+      data.forEach(row => {
+        const userId = row.user_id;
+        userCounts[userId] = (userCounts[userId] || 0) + 1;
+      });
+
+      // Segment users by usage tiers
+      const segmentation = {
+        tier1: 0,  // < 10 runs
+        tier2: 0,  // 11-30 runs
+        tier3: 0,  // 31-100 runs
+        tier4: 0   // > 100 runs
+      };
+
+      Object.values(userCounts).forEach(count => {
+        if (count < 10) {
+          segmentation.tier1++;
+        } else if (count >= 11 && count <= 30) {
+          segmentation.tier2++;
+        } else if (count >= 31 && count <= 100) {
+          segmentation.tier3++;
+        } else {
+          segmentation.tier4++;
+        }
+      });
+
+      return segmentation;
+    } catch (err) {
+      console.error('Error getting user segmentation:', err);
+      return {
+        tier1: 0,
+        tier2: 0,
+        tier3: 0,
+        tier4: 0
+      };
+    }
   }
 };
 
