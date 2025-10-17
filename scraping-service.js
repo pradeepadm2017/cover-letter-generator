@@ -1616,8 +1616,8 @@ async function fetchJobDescriptionHybrid(url) {
     // Note: HTTP 403 is NORMAL for many sites (Indeed, LinkedIn, etc.) - Apify with proxies can bypass it
     // Only block sites where Apify also fails consistently (The Ladders, etc.)
     const domain = new URL(url).hostname;
-    const isHttp403 = error.message.includes('403');
-    const isHttp999 = error.message.includes('999');
+    const isHttp403 = error.message.includes('403') || error.response?.status === 403;
+    const isHttp999 = error.message.includes('999') || error.response?.status === 999;
 
     // Known sites where even Apify can't help (exhausted all options)
     const knownBlockedSites = [
