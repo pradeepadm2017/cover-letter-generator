@@ -46,9 +46,13 @@ const { ApifyClient } = require('apify-client');
 // Lazy-initialize Apify client (check at runtime, not module load time)
 let apifyClient = null;
 function getApifyClient() {
-  if (!apifyClient && process.env.ENABLE_APIFY_SCRAPING === 'true' && process.env.APIFY_API_TOKEN) {
+  // Trim environment variables to handle any whitespace/newlines
+  const enableFlag = (process.env.ENABLE_APIFY_SCRAPING || '').trim();
+  const apiToken = (process.env.APIFY_API_TOKEN || '').trim();
+
+  if (!apifyClient && enableFlag === 'true' && apiToken) {
     apifyClient = new ApifyClient({
-      token: process.env.APIFY_API_TOKEN
+      token: apiToken
     });
     console.log('✅ Apify scraping enabled');
   }
@@ -802,7 +806,8 @@ async function linkedInGuestApiFetch(url) {
 
   // Extract job ID from various LinkedIn URL formats
   const jobIdPatterns = [
-    /linkedin\.com\/jobs\/view\/(\d+)/,           // Standard format
+    /linkedin\.com\/jobs\/view\/.*?(\d{10,})/,    // Standard format with title slug (at least 10 digits)
+    /linkedin\.com\/jobs\/view\/(\d+)/,           // Standard format without slug
     /linkedin\.com\/jobs\/collections\/.*?\/(\d+)/, // Collections
     /currentJobId=(\d+)/,                         // Query parameter
     /jobPosting\/(\d+)/                           // Direct API format
@@ -1660,7 +1665,8 @@ async function fetchJobDescriptionHybrid(url) {
   }
 
   // TIER 2: Apify (only if enabled)
-  if (process.env.ENABLE_APIFY_SCRAPING === 'true' && getApifyClient()) {
+  const enableApify = (process.env.ENABLE_APIFY_SCRAPING || '').trim();
+  if (enableApify === 'true' && getApifyClient()) {
     try {
       const result = await tier2_apifyFetch(url);
       if (validateExtractedContent(result)) {
@@ -1674,7 +1680,8 @@ async function fetchJobDescriptionHybrid(url) {
   }
 
   // TIER 3: Puppeteer (only if enabled - future implementation)
-  if (process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
+  const enablePuppeteer = (process.env.ENABLE_PUPPETEER_FALLBACK || '').trim();
+  if (enablePuppeteer === 'true') {
     try {
       const result = await tier3_puppeteerFetch(url);
       if (validateExtractedContent(result)) {
