@@ -441,11 +441,12 @@ app.post('/api/upload-resume', upload.single('resume'), async (req, res) => {
 async function fetchJobDescription(url) {
   console.log(`🔍 Fetching job description from: ${url}`);
 
-  const response = await axios.get(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-  });
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
 
   const $ = cheerio.load(response.data);
 
@@ -530,6 +531,37 @@ async function fetchJobDescription(url) {
   console.log(`🔍 EXTRACTION DEBUG - Final structured text first 300 chars:`, finalText.substring(0, 300));
 
   return finalText;
+  } catch (error) {
+    console.log(`⚠️  Basic fetch CAUGHT ERROR: ${error.message}`);
+    console.log(`⚠️  Error has response object: ${error.response ? 'YES' : 'NO'}`);
+    console.log(`⚠️  Response status: ${error.response?.status}`);
+
+    // SMART BLOCKING DETECTION: Check for known-blocked sites
+    const domain = new URL(url).hostname;
+    const isHttp403 = error.message.includes('403') || error.response?.status === 403;
+    const isHttp999 = error.message.includes('999') || error.response?.status === 999;
+
+    // Known sites that consistently block scraping
+    const knownBlockedSites = [
+      'theladders.com'
+    ];
+
+    const isKnownBlocked = knownBlockedSites.some(site => domain.includes(site));
+
+    if ((isHttp403 || isHttp999) && isKnownBlocked) {
+      console.log(`🚫 ${domain} is on known-blocked list (HTTP ${isHttp403 ? '403' : '999'})`);
+      console.log('   💡 This site consistently blocks scraping');
+
+      throw new Error(
+        `${domain} appears to be blocking automated access. ` +
+        `This is common with certain job boards after repeated requests. ` +
+        `Please use the "Manual Paste" feature instead, or try again in 1-2 hours when the block may reset.`
+      );
+    }
+
+    // For other errors, re-throw the original error
+    throw error;
+  }
 }
 
 // Helper function to extract candidate name from resume
@@ -856,7 +888,31 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
               };
             }
           } catch (fetchError) {
-            console.log(`⚠️ [Job ${index + 1}] Failed to fetch job description: ${fetchError.message}`);
+            console.log(`⚠️ Failed to fetch job description: ${fetchError.message}`);
+
+            // SMART BLOCKING DETECTION: Check for known-blocked sites
+            try {
+              const domain = new URL(jobUrl).hostname;
+              const isHttp403 = fetchError.message.includes('403') || fetchError.response?.status === 403;
+              const isHttp999 = fetchError.message.includes('999') || fetchError.response?.status === 999;
+
+              const knownBlockedSites = ['theladders.com'];
+              const isKnownBlocked = knownBlockedSites.some(site => domain.includes(site));
+
+              if ((isHttp403 || isHttp999) && isKnownBlocked) {
+                console.log(`🚫 ${domain} is on known-blocked list (HTTP ${isHttp403 ? '403' : '999'})`);
+                fallbackReason = `${domain} appears to be blocking automated access. ` +
+                  `This is common with certain job boards after repeated requests. ` +
+                  `Please use the "Manual Paste" feature instead, or try again in 1-2 hours when the block may reset.`;
+              } else {
+                fallbackReason = fetchError.message;
+              }
+            } catch (urlError) {
+              // If URL parsing fails, use original error message
+              fallbackReason = fetchError.message;
+            }
+
+            usedFallback = true;
 
             // SMART BLOCKING DETECTION: Check for known-blocked sites
             let friendlyError = fetchError.message;

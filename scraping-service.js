@@ -487,6 +487,86 @@ function extractGlassdoorJobFromApollo(apolloState, url) {
 }
 
 /**
+ * WORKOPOLIS SPECIAL: Extract from JSON-LD structured data
+ * First tries direct fetch, then ScraperAPI if blocked (403)
+ */
+async function workopolisFetch(url) {
+  console.log('🍁 Workopolis: Extracting from JSON-LD...');
+
+  // Try direct fetch first (works on localhost, may fail on Vercel)
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
+      },
+      timeout: 15000
+    });
+
+    return await extractWorkopolisFromHtml(response.data);
+  } catch (error) {
+    console.error(`   ❌ Workopolis direct fetch failed:`, error.message);
+
+    // If 403, try ScraperAPI
+    if ((error.message.includes('403') || error.response?.status === 403) && isScraperApiEnabled()) {
+      console.log('   🔄 Trying ScraperAPI for Workopolis (blocked by 403)...');
+      try {
+        const scraperApiUrl = `http://api.scraperapi.com?api_key=${process.env.SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}`;
+        const response = await axios.get(scraperApiUrl, {
+          timeout: 60000
+        });
+
+        return await extractWorkopolisFromHtml(response.data);
+      } catch (scraperError) {
+        console.error(`   ❌ ScraperAPI also failed:`, scraperError.message);
+        throw scraperError;
+      }
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Helper function to extract job data from Workopolis HTML
+ */
+async function extractWorkopolisFromHtml(html) {
+  const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s);
+
+  if (!jsonLdMatch) {
+    throw new Error('JSON-LD not found in Workopolis page');
+  }
+
+  const jsonLd = JSON.parse(jsonLdMatch[1]);
+  const jobTitle = jsonLd.title || '';
+  const companyName = jsonLd.hiringOrganization?.name || '';
+  let jobDescription = jsonLd.description || '';
+
+  // Clean HTML from description
+  if (jobDescription.includes('<')) {
+    const $ = require('cheerio').load(jobDescription);
+    jobDescription = $.text().trim().replace(/\s+/g, ' ');
+  }
+
+  if (!jobTitle || !companyName || jobDescription.length < 200) {
+    throw new Error('Incomplete data extracted from Workopolis');
+  }
+
+  let finalText = '';
+  if (jobTitle) finalText += `Job Title: ${jobTitle}\n\n`;
+  if (companyName) finalText += `Company: ${companyName}\n\n`;
+  finalText += `Job Description:\n${jobDescription}`;
+
+  console.log('\n✅ Workopolis JSON-LD Success:');
+  console.log('   📋 Job Title:', jobTitle || 'NOT FOUND');
+  console.log('   🏢 Company:', companyName || 'NOT FOUND');
+  console.log('   📄 Description:', jobDescription.length, 'chars');
+
+  return finalText;
+}
+
+/**
  * GOOGLE JOBS REDIRECT: Extract source URLs from Google Jobs listings
  * Google Jobs is an aggregator - redirects to original job board (LinkedIn, Indeed, etc.)
  * Priority: LinkedIn > Indeed > Other sources
@@ -1064,9 +1144,17 @@ async function apifyFetchIndeed(url) {
   console.log(`   🔗 Indeed URL: ${indeedUrl}`);
 
   try {
+    const client = getApifyClient();
     // Use Cheerio Scraper with proxies - faster and less detectable than browser automation
-    // Set timeout to prevent users from waiting too long
-    const APIFY_TIMEOUT_MS = 60000; // 60 seconds max
+    const run = await client.actor('apify/cheerio-scraper').call({
+      startUrls: [{ url: indeedUrl }],
+      proxyConfiguration: {
+        useApifyProxy: true
+      },
+      maxRequestsPerCrawl: 1,
+      maxRequestRetries: 3,
+      pageFunction: async function pageFunction(context) {
+        const { $, request, body } = context;
 
     console.log(`   ⏳ Starting Apify with ${APIFY_TIMEOUT_MS/1000}s timeout...`);
 
@@ -1183,13 +1271,9 @@ async function apifyFetchIndeed(url) {
       }
     });
 
-      // Wait for actor to finish and get results
-      const { items } = await getApifyClient().dataset(run.defaultDatasetId).listItems();
-      return items;
-    })();
-
-    // Race between Apify and timeout
-    const items = await Promise.race([apifyPromise, timeoutPromise]);
+    // Wait for actor to finish and get results
+    console.log(`   ⏳ Waiting for Apify to finish...`);
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
       throw new Error('Apify returned no results');
@@ -1249,7 +1333,8 @@ async function apifyFetchGeneric(url) {
 
   // Use Cheerio for standard sites (faster and cheaper)
   try {
-    const run = await getApifyClient().actor('apify/cheerio-scraper').call({
+    const client = getApifyClient();
+    const run = await client.actor('apify/cheerio-scraper').call({
       startUrls: [{ url }],
       maxRequestsPerCrawl: 1,
       maxRequestRetries: 3,
@@ -1273,7 +1358,7 @@ async function apifyFetchGeneric(url) {
       }
     });
 
-    const { items } = await getApifyClient().dataset(run.defaultDatasetId).listItems();
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
       throw new Error('The title selector did not match any elements');
@@ -1288,7 +1373,7 @@ async function apifyFetchGeneric(url) {
 
     let finalText = '';
     if (data.jobTitle) finalText += `Job Title: ${data.jobTitle}\n\n`;
-    if (data.companyName) finalText += `Company: ${data.companyName}\n\n`;
+    if (data.companyName) finalText += `Company: ${companyName}\n\n`;
     finalText += `Job Description:\n${data.jobDescription}`;
 
     console.log(`   ✅ Tier 2 Success (Apify Generic) - Extracted:`);
@@ -1568,21 +1653,6 @@ async function fetchJobDescriptionHybrid(url) {
     }
   }
 
-  // ELUTA SPECIAL: Try JSON-LD extraction (free & reliable for Eluta.ca)
-  if (url.includes('eluta.ca')) {
-    console.log('🍁 Eluta.ca URL detected - trying JSON-LD extraction...');
-    try {
-      const result = await elutaFetch(url);
-      if (validateExtractedContent(result)) {
-        console.log('✅ Eluta SUCCESS - Using result\n');
-        return { content: result, method: 'eluta-jsonld' };
-      }
-      console.log('⚠️  Eluta result invalid, trying other methods...');
-    } catch (error) {
-      console.log(`⚠️  Eluta failed: ${error.message}, trying other methods...`);
-    }
-  }
-
   // WORKOPOLIS SPECIAL: Try JSON-LD extraction (free & reliable for Workopolis)
   if (url.includes('workopolis.com')) {
     console.log('🍁 Workopolis URL detected - trying JSON-LD extraction...');
@@ -1590,7 +1660,7 @@ async function fetchJobDescriptionHybrid(url) {
       const result = await workopolisFetch(url);
       if (validateExtractedContent(result)) {
         console.log('✅ Workopolis SUCCESS - Using result\n');
-        return { content: result, method: 'workopolis-jsonld' };
+        return result;
       }
       console.log('⚠️  Workopolis result invalid, trying other methods...');
     } catch (error) {
@@ -1610,6 +1680,14 @@ async function fetchJobDescriptionHybrid(url) {
   } catch (error) {
     tier1Error = error;
     console.log(`⚠️  Tier 1 failed: ${error.message}, trying next tier...`);
+
+    // DEBUG: Log full error details to understand axios error structure
+    console.log('🔍 DEBUG - Full error object:');
+    console.log('   error.message:', error.message);
+    console.log('   error.response:', error.response ? 'EXISTS' : 'UNDEFINED');
+    console.log('   error.response?.status:', error.response?.status);
+    console.log('   error.response?.statusText:', error.response?.statusText);
+    console.log('   error.code:', error.code);
 
     // SMART BLOCKING DETECTION: Fail fast for known-blocked sites only
     // Note: HTTP 403 is NORMAL for many sites (Indeed, LinkedIn, etc.) - Apify with proxies can bypass it
