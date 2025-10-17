@@ -1695,7 +1695,10 @@ async function fetchJobDescriptionHybrid(url) {
 
   // All tiers failed
   console.log('❌ ALL TIERS FAILED - Could not extract job description\n');
-  throw new Error('Could not extract meaningful job description from URL');
+  throw new Error(
+    'Could not extract job description from this URL. This may be due to anti-bot protection or site restrictions. ' +
+    'Please try again in a few minutes, or use the "Paste Job Descriptions" feature to manually enter the job details.'
+  );
 }
 
 module.exports = {
