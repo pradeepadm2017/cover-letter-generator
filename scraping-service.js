@@ -477,12 +477,13 @@ function extractGlassdoorJobFromApollo(apolloState, url) {
 }
 
 /**
- * WORKOPOLIS SPECIAL: Extract from JSON-LD structured data (FREE)
- * Workopolis embeds job data in JSON-LD format - ~95% success rate
+ * WORKOPOLIS SPECIAL: Extract from JSON-LD structured data
+ * First tries direct fetch, then ScraperAPI if blocked (403)
  */
 async function workopolisFetch(url) {
   console.log('🍁 Workopolis: Extracting from JSON-LD...');
 
+  // Try direct fetch first (works on localhost, may fail on Vercel)
   try {
     const response = await axios.get(url, {
       headers: {
@@ -493,43 +494,66 @@ async function workopolisFetch(url) {
       timeout: 15000
     });
 
-    const html = response.data;
-    const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s);
-
-    if (!jsonLdMatch) {
-      throw new Error('JSON-LD not found in Workopolis page');
-    }
-
-    const jsonLd = JSON.parse(jsonLdMatch[1]);
-    const jobTitle = jsonLd.title || '';
-    const companyName = jsonLd.hiringOrganization?.name || '';
-    let jobDescription = jsonLd.description || '';
-
-    // Clean HTML from description
-    if (jobDescription.includes('<')) {
-      const $ = require('cheerio').load(jobDescription);
-      jobDescription = $.text().trim().replace(/\s+/g, ' ');
-    }
-
-    if (!jobTitle || !companyName || jobDescription.length < 200) {
-      throw new Error('Incomplete data extracted from Workopolis');
-    }
-
-    let finalText = '';
-    if (jobTitle) finalText += `Job Title: ${jobTitle}\n\n`;
-    if (companyName) finalText += `Company: ${companyName}\n\n`;
-    finalText += `Job Description:\n${jobDescription}`;
-
-    console.log('\n✅ Workopolis JSON-LD Success:');
-    console.log('   📋 Job Title:', jobTitle || 'NOT FOUND');
-    console.log('   🏢 Company:', companyName || 'NOT FOUND');
-    console.log('   📄 Description:', jobDescription.length, 'chars');
-
-    return finalText;
+    return await extractWorkopolisFromHtml(response.data);
   } catch (error) {
-    console.error(`   ❌ Workopolis extraction failed:`, error.message);
+    console.error(`   ❌ Workopolis direct fetch failed:`, error.message);
+
+    // If 403, try ScraperAPI
+    if ((error.message.includes('403') || error.response?.status === 403) && isScraperApiEnabled()) {
+      console.log('   🔄 Trying ScraperAPI for Workopolis (blocked by 403)...');
+      try {
+        const scraperApiUrl = `http://api.scraperapi.com?api_key=${process.env.SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}`;
+        const response = await axios.get(scraperApiUrl, {
+          timeout: 60000
+        });
+
+        return await extractWorkopolisFromHtml(response.data);
+      } catch (scraperError) {
+        console.error(`   ❌ ScraperAPI also failed:`, scraperError.message);
+        throw scraperError;
+      }
+    }
+
     throw error;
   }
+}
+
+/**
+ * Helper function to extract job data from Workopolis HTML
+ */
+async function extractWorkopolisFromHtml(html) {
+  const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s);
+
+  if (!jsonLdMatch) {
+    throw new Error('JSON-LD not found in Workopolis page');
+  }
+
+  const jsonLd = JSON.parse(jsonLdMatch[1]);
+  const jobTitle = jsonLd.title || '';
+  const companyName = jsonLd.hiringOrganization?.name || '';
+  let jobDescription = jsonLd.description || '';
+
+  // Clean HTML from description
+  if (jobDescription.includes('<')) {
+    const $ = require('cheerio').load(jobDescription);
+    jobDescription = $.text().trim().replace(/\s+/g, ' ');
+  }
+
+  if (!jobTitle || !companyName || jobDescription.length < 200) {
+    throw new Error('Incomplete data extracted from Workopolis');
+  }
+
+  let finalText = '';
+  if (jobTitle) finalText += `Job Title: ${jobTitle}\n\n`;
+  if (companyName) finalText += `Company: ${companyName}\n\n`;
+  finalText += `Job Description:\n${jobDescription}`;
+
+  console.log('\n✅ Workopolis JSON-LD Success:');
+  console.log('   📋 Job Title:', jobTitle || 'NOT FOUND');
+  console.log('   🏢 Company:', companyName || 'NOT FOUND');
+  console.log('   📄 Description:', jobDescription.length, 'chars');
+
+  return finalText;
 }
 
 /**
