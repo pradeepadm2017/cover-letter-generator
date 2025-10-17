@@ -30,6 +30,47 @@ const userOps = {
     return data;
   },
 
+  // Ensure profile exists, create if not (fallback for when triggers don't work)
+  ensureProfile: async (userId) => {
+    // Check if profile already exists
+    let profile = await userOps.findById(userId);
+    if (profile) return profile;
+
+    // Profile doesn't exist, get user from auth and create profile
+    try {
+      const { data: authData } = await supabase.auth.admin.listUsers();
+      const authUser = authData.users.find(u => u.id === userId);
+
+      if (!authUser) {
+        console.error('User not found in auth.users:', userId);
+        return null;
+      }
+
+      // Create profile
+      const { data: newProfile, error } = await supabase
+        .from('profiles')
+        .insert({
+          id: authUser.id,
+          email: authUser.email,
+          subscription_tier: 'free',
+          custom_monthly_limit: null // Will use default 3
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error auto-creating profile:', error);
+        return null;
+      }
+
+      console.log('Auto-created profile for user:', authUser.email);
+      return newProfile;
+    } catch (err) {
+      console.error('Error in ensureProfile:', err);
+      return null;
+    }
+  },
+
   updateSubscription: async (userId, tier, expiresAt) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -186,8 +227,9 @@ const usageOps = {
   },
 
   canGenerate: async (userId) => {
+    // Ensure profile exists (auto-create if trigger failed)
+    const user = await userOps.ensureProfile(userId);
     const subscription = await userOps.getSubscriptionStatus(userId);
-    const user = await userOps.findById(userId);
 
     // Paid users with active subscription have unlimited access
     if (subscription && subscription.tier !== 'free' && subscription.isActive) {
