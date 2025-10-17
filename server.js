@@ -13,7 +13,7 @@ const multer = require('multer');
 let pdfParse = null;
 const mammoth = require('mammoth');
 const supabase = require('./supabase-client');
-const { userOps, usageOps } = require('./supabase-db');
+const { userOps, usageOps, analyticsOps } = require('./supabase-db');
 
 // Import advanced scraping service (feature-flagged)
 const scrapingService = require('./scraping-service');
@@ -87,6 +87,101 @@ app.use((req, res, next) => {
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
+
+// Job Description Cache (24-hour TTL)
+const jobDescriptionCache = new Map();
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function getCachedJobDescription(url) {
+  const cached = jobDescriptionCache.get(url);
+  if (!cached) return null;
+
+  const now = Date.now();
+  if (now - cached.timestamp > CACHE_TTL_MS) {
+    // Cache expired
+    jobDescriptionCache.delete(url);
+    return null;
+  }
+
+  console.log(`💾 Cache HIT for ${url} (age: ${((now - cached.timestamp) / 1000 / 60).toFixed(1)}min)`);
+  return cached.description;
+}
+
+function setCachedJobDescription(url, description) {
+  jobDescriptionCache.set(url, {
+    description,
+    timestamp: Date.now()
+  });
+  console.log(`💾 Cached job description for ${url} (cache size: ${jobDescriptionCache.size})`);
+}
+
+// Resume Cache (24-hour TTL) - keyed by user ID + resume hash
+const resumeCache = new Map();
+
+function getResumeHash(resumeText) {
+  // Simple hash function for resume content
+  let hash = 0;
+  for (let i = 0; i < resumeText.length; i++) {
+    const char = resumeText.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash.toString(36);
+}
+
+function getCachedResume(userId, resumeText) {
+  const resumeHash = getResumeHash(resumeText);
+  const cacheKey = `${userId}:${resumeHash}`;
+  const cached = resumeCache.get(cacheKey);
+
+  if (!cached) return null;
+
+  const now = Date.now();
+  if (now - cached.timestamp > CACHE_TTL_MS) {
+    // Cache expired
+    resumeCache.delete(cacheKey);
+    return null;
+  }
+
+  console.log(`💾 Resume cache HIT for user ${userId} (age: ${((now - cached.timestamp) / 1000 / 60).toFixed(1)}min)`);
+  return cached;
+}
+
+function setCachedResume(userId, resumeText, candidateName) {
+  const resumeHash = getResumeHash(resumeText);
+  const cacheKey = `${userId}:${resumeHash}`;
+
+  resumeCache.set(cacheKey, {
+    candidateName,
+    timestamp: Date.now()
+  });
+  console.log(`💾 Cached resume for user ${userId} (cache size: ${resumeCache.size})`);
+}
+
+// Clear expired cache entries every hour
+setInterval(() => {
+  const now = Date.now();
+  let clearedJobs = 0;
+  let clearedResumes = 0;
+
+  for (const [url, cached] of jobDescriptionCache.entries()) {
+    if (now - cached.timestamp > CACHE_TTL_MS) {
+      jobDescriptionCache.delete(url);
+      clearedJobs++;
+    }
+  }
+
+  for (const [key, cached] of resumeCache.entries()) {
+    if (now - cached.timestamp > CACHE_TTL_MS) {
+      resumeCache.delete(key);
+      clearedResumes++;
+    }
+  }
+
+  if (clearedJobs > 0 || clearedResumes > 0) {
+    console.log(`🧹 Cleared ${clearedJobs} job descriptions, ${clearedResumes} resumes (remaining: ${jobDescriptionCache.size} jobs, ${resumeCache.size} resumes)`);
+  }
+}, 60 * 60 * 1000); // Run every hour
 
 // Authentication middleware
 function ensureAuthenticated(req, res, next) {
@@ -256,6 +351,29 @@ app.get('/app', (req, res) => {
 // Route to serve the manual paste page (client-side handles auth)
 app.get('/manual-paste', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'manual-paste.html'));
+});
+
+// Analytics API endpoints
+app.get('/api/scraping-analytics', async (req, res) => {
+  try {
+    const rangeType = req.query.rangeType || 'all';
+    const stats = await analyticsOps.getScrapingAnalytics(rangeType);
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching scraping analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch scraping analytics' });
+  }
+});
+
+app.get('/api/user-activity', async (req, res) => {
+  try {
+    const rangeType = req.query.rangeType || 'all';
+    const activity = await analyticsOps.getUserActivity(rangeType);
+    res.json(activity);
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
+    res.status(500).json({ error: 'Failed to fetch user activity' });
+  }
 });
 
 // Route to handle resume file upload
@@ -598,24 +716,30 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
       return res.status(400).json({ error: 'Resume and job URLs are required' });
     }
 
-    const results = [];
+    console.log(`📊 Processing ${jobUrls.length} jobs with parallel processing (batch size: 10)`);
+    const startTime = Date.now();
 
-    for (let i = 0; i < jobUrls.length; i++) {
-      const jobItem = jobUrls[i];
+    const results = [];
+    const BATCH_SIZE = 10;
+
+    // Helper function to process a single job
+    const processJob = async (jobItem, index) => {
       const isManualJob = typeof jobItem === 'object' && jobItem.isManual;
-      const jobUrl = isManualJob ? `manual-${i}` : jobItem;
+      const jobUrl = isManualJob ? `manual-${index}` : (jobItem.url || jobItem);
+
+      const jobStartTime = Date.now();
+      console.log(`🚀 [Job ${index + 1}/${jobUrls.length}] Starting: ${isManualJob ? 'MANUAL' : jobUrl}`);
 
       // Check usage limits before processing each URL
       const usageCheck = await usageOps.canGenerate(req.user.id);
       if (!usageCheck.allowed) {
-        // Stop processing and return error
-        return res.status(403).json({
+        console.log(`⛔ [Job ${index + 1}] Usage limit reached`);
+        return {
+          jobUrl: jobUrl,
+          success: false,
           error: 'Usage limit reached',
-          message: 'You have reached your monthly limit. Please upgrade to continue or enter a promo code.',
-          tier: usageCheck.tier,
-          remaining: usageCheck.remaining,
-          results: results // Return any successful results so far
-        });
+          limitReached: true
+        };
       }
 
       try {
@@ -627,78 +751,143 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
 
         if (isManualJob) {
           // Manual job - use provided data
-          console.log(`📝 Using manually pasted job data for job ${i + 1}`);
+          console.log(`📝 [Job ${index + 1}] Using manually pasted job data`);
 
           // Validate description length
           if (jobItem.description.length < 100) {
-            results.push({
+            return {
               jobUrl: jobUrl,
               success: false,
               error: 'Job description is too short. Please provide at least 100 characters for a meaningful cover letter.'
-            });
-            continue;
+            };
           }
 
           if (jobItem.description.length > 10000) {
-            results.push({
+            return {
               jobUrl: jobUrl,
               success: false,
               error: 'Job description is too long. Please keep it under 10,000 characters.'
-            });
-            continue;
+            };
           }
 
           jobDescription = `Job Title: ${jobItem.title}\n\nCompany: ${jobItem.company}\n\nJob Description:\n${jobItem.description}`;
         } else {
           // URL-based job - scrape it
+          let scrapingMethod = 'cached';
+          let scrapingSuccess = false;
+          let scrapingError = null;
+
           try {
-            // Use hybrid scraping if enabled, otherwise use basic fetch
-            if (process.env.ENABLE_APIFY_SCRAPING === 'true' || process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
-              console.log('🚀 Using HYBRID scraping approach (feature-flagged)');
-              jobDescription = await scrapingService.fetchJobDescriptionHybrid(jobUrl);
+            // Check cache first
+            const cachedDescription = getCachedJobDescription(jobUrl);
+            if (cachedDescription) {
+              jobDescription = cachedDescription;
+              scrapingMethod = 'cached';
+              scrapingSuccess = true;
+              console.log(`💾 Using cached job description (saved ~10-30s)`);
             } else {
-              console.log('📡 Using BASIC scraping approach (default)');
-              jobDescription = await fetchJobDescription(jobUrl);
+              // Use hybrid scraping if enabled, otherwise use basic fetch
+              scrapingMethod = 'basic-fetch';
+
+              try {
+                if (process.env.ENABLE_APIFY_SCRAPING === 'true' || process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
+                  console.log('🚀 Using HYBRID scraping approach (feature-flagged)');
+                  const hybridResult = await scrapingService.fetchJobDescriptionHybrid(jobUrl);
+
+                  // Handle new return format { content, method }
+                  if (typeof hybridResult === 'object' && hybridResult.content) {
+                    jobDescription = hybridResult.content;
+                    scrapingMethod = hybridResult.method || 'unknown';
+                    console.log(`✅ Hybrid scraper successful, method: ${scrapingMethod}`);
+                  } else {
+                    // Backward compatibility - if service returns string instead of object
+                    jobDescription = hybridResult;
+                  }
+                } else {
+                  console.log('📡 Using BASIC scraping approach (default)');
+                  jobDescription = await fetchJobDescription(jobUrl);
+                }
+                scrapingSuccess = true;
+
+                // Cache the result
+                setCachedJobDescription(jobUrl, jobDescription);
+              } catch (scrapingErr) {
+                scrapingError = scrapingErr.message;
+                scrapingSuccess = false;
+                throw scrapingErr;
+              }
             }
+
+            // Track scraping attempt (for ALL jobs, cached and non-cached)
+            const isFreeMethod = !['apify', 'puppeteer', 'scraperapi'].includes(scrapingMethod);
+            await analyticsOps.trackScrapingAttempt(
+              req.user.id,
+              jobUrl,
+              scrapingMethod,
+              isFreeMethod,
+              scrapingSuccess,
+              scrapingError
+            );
 
             // Check if the fetched content is actually valid (not a login page or too short)
             const descriptionOnly = jobDescription.split('Job Description:')[1] || jobDescription;
             if (descriptionOnly.length < 500 ||
                 descriptionOnly.toLowerCase().includes('sign in') && descriptionOnly.length < 1000 ||
                 descriptionOnly.toLowerCase().includes('keep me logged in')) {
-              console.log(`⚠️ Fetched content appears invalid (too short or login page)`);
-              usedFallback = true;
-              fallbackReason = 'Could not extract meaningful job description from URL (possible login wall or invalid page)';
+              console.log(`⚠️ [Job ${index + 1}] Fetched content appears invalid (too short or login page)`);
 
-              // Skip cover letter generation for fallback cases
-              results.push({
+              // Track failed generation attempt
+              await analyticsOps.trackGenerationAttempt(
+                req.user.id,
+                jobUrl,
+                false, // not manual
+                false, // failed
+                'Could not extract meaningful job description from URL',
+                Date.now() - jobStartTime
+              );
+
+              return {
                 jobUrl: jobUrl,
                 success: false,
                 usedFallback: true,
-                fallbackReason: fallbackReason,
-                error: fallbackReason
-              });
-              continue; // Skip to next job URL
+                fallbackReason: 'Could not extract meaningful job description from URL (possible login wall or invalid page)',
+                error: 'Could not extract meaningful job description from URL (possible login wall or invalid page)'
+              };
             }
           } catch (fetchError) {
-            console.log(`⚠️ Failed to fetch job description: ${fetchError.message}`);
-            usedFallback = true;
-            fallbackReason = fetchError.message; // Use actual error message instead of generic one
+            console.log(`⚠️ [Job ${index + 1}] Failed to fetch job description: ${fetchError.message}`);
 
-            // Skip cover letter generation for fallback cases
-            results.push({
+            // Track failed generation attempt
+            await analyticsOps.trackGenerationAttempt(
+              req.user.id,
+              jobUrl,
+              false, // not manual
+              false, // failed
+              fetchError.message,
+              Date.now() - jobStartTime
+            );
+
+
+            return {
               jobUrl: jobUrl,
               success: false,
               usedFallback: true,
-              fallbackReason: fallbackReason,
-              error: fallbackReason
-            });
-            continue; // Skip to next job URL
+              fallbackReason: fetchError.message,
+              error: fetchError.message
+            };
           }
         }
 
-        // Extract candidate name from resume
-        const candidateName = extractCandidateName(resume);
+        // Extract candidate name from resume (with caching)
+        let candidateName;
+        const cachedResume = getCachedResume(req.user.id, resume);
+        if (cachedResume) {
+          candidateName = cachedResume.candidateName;
+          console.log(`💾 Using cached candidate name: ${candidateName}`);
+        } else {
+          candidateName = extractCandidateName(resume);
+          setCachedResume(req.user.id, resume, candidateName);
+        }
 
         // We already have the job title from our main extraction - let's use it
         // Look for job title in the already extracted summary
@@ -1204,30 +1393,102 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
           console.error('Error creating cover letter as Word document:', saveError);
         }
 
-        results.push({
+        const jobDuration = ((Date.now() - jobStartTime) / 1000).toFixed(2);
+        console.log(`✅ [Job ${index + 1}] Completed in ${jobDuration}s`);
+
+        await usageOps.incrementUsage(req.user.id);
+
+        // Track successful generation
+        await analyticsOps.trackGenerationAttempt(
+          req.user.id,
+          jobUrl,
+          isManualJob,
+          true,
+          null,
+          Date.now() - jobStartTime
+        );
+
+        return {
           jobUrl: jobUrl,
           coverLetter: coverLetter,
-          fileData: fileData, // Base64 encoded file
+          fileData: fileData,
           fileName: fileName,
           success: true,
           usedFallback: usedFallback,
           fallbackReason: fallbackReason
-        });
-
-        // Increment usage counter for successful generation
-        await usageOps.incrementUsage(req.user.id);
+        };
 
       } catch (error) {
-        console.error(`Error processing ${isManualJob ? 'manual job' : 'job URL'} ${jobUrl}:`, error);
-        results.push({
+        const jobDuration = ((Date.now() - jobStartTime) / 1000).toFixed(2);
+        console.error(`❌ [Job ${index + 1}] Failed after ${jobDuration}s:`, error.message);
+
+        // Track failed generation
+        await analyticsOps.trackGenerationAttempt(
+          req.user.id,
+          jobUrl,
+          isManualJob,
+          false,
+          error.message,
+          Date.now() - jobStartTime
+        );
+
+        return {
           jobUrl: jobUrl,
           error: isManualJob
-            ? `Failed to generate cover letter: ${error.message}`
-            : `Failed to process job URL: ${error.message}`,
+            ? 'Failed to generate cover letter. Please check your job details.'
+            : 'Unable to process this job URL. Please try Manual Paste instead.',
           success: false
-        });
+        };
       }
+    };
+
+    // Process jobs in batches
+    for (let batchStart = 0; batchStart < jobUrls.length; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, jobUrls.length);
+      const batch = jobUrls.slice(batchStart, batchEnd);
+
+      console.log(`\n📦 Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: Jobs ${batchStart + 1}-${batchEnd}`);
+      const batchStartTime = Date.now();
+
+      // Process batch in parallel
+      const batchPromises = batch.map((jobItem, batchIndex) =>
+        processJob(jobItem, batchStart + batchIndex)
+      );
+
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      // Collect results
+      batchResults.forEach((result, i) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+
+          // Check if limit was reached mid-batch
+          if (result.value.limitReached) {
+            console.log('⛔ Usage limit reached - stopping processing');
+            return res.status(403).json({
+              error: 'Usage limit reached',
+              message: 'You have reached your monthly limit.',
+              results: results
+            });
+          }
+        } else {
+          console.error(`❌ Batch job ${batchStart + i + 1} rejected:`, result.reason);
+          results.push({
+            jobUrl: `job-${batchStart + i + 1}`,
+            success: false,
+            error: 'Unexpected error processing job'
+          });
+        }
+      });
+
+      const batchDuration = ((Date.now() - batchStartTime) / 1000).toFixed(2);
+      const successCount = batchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      console.log(`✅ Batch completed in ${batchDuration}s (${successCount}/${batch.length} successful)\n`);
     }
+
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const totalSuccess = results.filter(r => r.success).length;
+    console.log(`\n🎉 All jobs completed in ${totalDuration}s (${totalSuccess}/${jobUrls.length} successful)`);
 
     res.json({ results });
   } catch (error) {

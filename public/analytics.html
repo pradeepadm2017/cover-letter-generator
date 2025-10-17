@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scraping Analytics Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-card.free .value {
+            color: #10b981;
+        }
+
+        .stat-card.paid .value {
+            color: #ef4444;
+        }
+
+        .month-section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .month-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .month-header h2 {
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        .month-header .total {
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .methods-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .methods-table th {
+            text-align: left;
+            padding: 12px;
+            background: #f9fafb;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .methods-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .methods-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .method-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #333;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge.free {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge.paid {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .count {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .percentage {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .filter-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .filter-section label {
+            font-weight: 600;
+            margin-right: 10px;
+            color: #333;
+        }
+
+        .filter-section select {
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 2px solid #667eea;
+            font-size: 1rem;
+            cursor: pointer;
+            background: white;
+        }
+
+        .section-title {
+            color: white;
+            font-size: 1.8rem;
+            margin: 30px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .user-table {
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .user-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .user-table td {
+            padding: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .user-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .user-table tr:hover {
+            background: #f9fafb;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .success-rate {
+            color: #10b981;
+        }
+
+        .failure-rate {
+            color: #ef4444;
+        }
+
+        .method-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .method-badge.url {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .method-badge.manual {
+            background: #fef3c7;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Home</a>
+
+        <div class="header">
+            <h1>📊 Analytics Dashboard</h1>
+            <p>Monitor scraping usage and user activity</p>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="filter-section">
+            <label for="dateRange">Date Range:</label>
+            <select id="dateRange">
+                <option value="all">All Time</option>
+                <option value="24h">Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+            </select>
+        </div>
+
+        <!-- Scraping Analytics Section -->
+        <h2 class="section-title">🔍 Scraping Analytics</h2>
+        <div class="stats-grid" id="statsGrid"></div>
+        <div id="scrapingContent" class="loading">Loading scraping analytics...</div>
+
+        <!-- User Activity Section -->
+        <h2 class="section-title">👥 User Activity</h2>
+        <div id="userActivityContent" class="loading">Loading user activity...</div>
+    </div>
+
+    <script>
+        const FREE_METHODS = ['cached', 'basic-fetch', 'linkedin-guest-api', 'indeed-embedded', 'glassdoor-apollo', 'eluta-jsonld', 'workopolis-jsonld', 'tier1-basic-fetch'];
+        const PAID_METHODS = ['apify', 'scraperapi'];
+
+        const METHOD_LABELS = {
+            'cached': 'Cached (Free)',
+            'basic-fetch': 'Basic Fetch',
+            'linkedin-guest-api': 'LinkedIn Guest API',
+            'indeed-embedded': 'Indeed Embedded',
+            'glassdoor-apollo': 'Glassdoor Apollo',
+            'eluta-jsonld': 'Eluta JSON-LD',
+            'workopolis-jsonld': 'Workopolis JSON-LD',
+            'tier1-basic-fetch': 'Tier 1 Basic Fetch',
+            'apify': 'Apify',
+            'scraperapi': 'ScraperAPI'
+        };
+
+        let currentDateRange = 'all';
+
+        // Date range filter event listener
+        document.getElementById('dateRange').addEventListener('change', (e) => {
+            currentDateRange = e.target.value;
+            loadAllAnalytics();
+        });
+
+        async function loadAllAnalytics() {
+            await Promise.all([loadScrapingAnalytics(), loadUserActivity()]);
+        }
+
+        async function loadScrapingAnalytics() {
+            try {
+                let url = '/api/scraping-analytics';
+                if (currentDateRange !== 'all') {
+                    url += `?rangeType=${currentDateRange}`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch scraping analytics');
+
+                const data = await response.json();
+                displayScrapingAnalytics(data);
+            } catch (error) {
+                document.getElementById('scrapingContent').innerHTML = `
+                    <div class="error">
+                        <h2>Error Loading Scraping Analytics</h2>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadUserActivity() {
+            try {
+                let url = '/api/user-activity';
+                if (currentDateRange !== 'all') {
+                    url += `?rangeType=${currentDateRange}`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch user activity');
+
+                const result = await response.json();
+                displayUserActivity(result.data);
+            } catch (error) {
+                document.getElementById('userActivityContent').innerHTML = `
+                    <div class="error">
+                        <h2>Error Loading User Activity</h2>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayScrapingAnalytics(data) {
+            // Handle date range format vs monthly format
+            let months = [];
+            let isDateRange = false;
+
+            if (data.total !== undefined && (data.freeMethods !== undefined || data.paidMethods !== undefined)) {
+                // This is date range data with new format
+                isDateRange = true;
+            } else {
+                // This is monthly data
+                months = Object.keys(data).sort().reverse();
+            }
+
+            if ((!isDateRange && months.length === 0) || (isDateRange && data.total === 0)) {
+                document.getElementById('statsGrid').innerHTML = '';
+                document.getElementById('scrapingContent').innerHTML = `
+                    <div class="no-data">
+                        <h2>No Data Yet</h2>
+                        <p>Start scraping job URLs to see analytics here!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Calculate totals
+            let totalFree = 0;
+            let totalPaid = 0;
+            let grandTotal = 0;
+
+            if (isDateRange) {
+                // Date range data - new format with freeMethods and paidMethods
+                Object.keys(data.freeMethods || {}).forEach(method => {
+                    const methodData = data.freeMethods[method];
+                    const count = methodData.total || methodData;
+                    totalFree += count;
+                    grandTotal += count;
+                });
+
+                Object.keys(data.paidMethods || {}).forEach(method => {
+                    const methodData = data.paidMethods[method];
+                    const count = methodData.total || methodData;
+                    totalPaid += count;
+                    grandTotal += count;
+                });
+            } else {
+                // Monthly data
+                months.forEach(month => {
+                    const monthData = data[month];
+                    Object.keys(monthData.methods).forEach(method => {
+                        const count = monthData.methods[method];
+                        if (FREE_METHODS.includes(method)) {
+                            totalFree += count;
+                        } else if (PAID_METHODS.includes(method)) {
+                            totalPaid += count;
+                        }
+                        grandTotal += count;
+                    });
+                });
+            }
+
+            // Display summary stats
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card">
+                    <h3>Total Scrapes</h3>
+                    <div class="value">${grandTotal}</div>
+                </div>
+                <div class="stat-card free">
+                    <h3>Free Scrapes</h3>
+                    <div class="value">${totalFree}</div>
+                </div>
+                <div class="stat-card paid">
+                    <h3>Paid Scrapes</h3>
+                    <div class="value">${totalPaid}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Free Percentage</h3>
+                    <div class="value">${grandTotal > 0 ? Math.round((totalFree / grandTotal) * 100) : 0}%</div>
+                </div>
+            `;
+
+            // Display monthly breakdown or date range breakdown
+            let html = '';
+            if (isDateRange) {
+                html = renderDateRangeStats(data);
+            } else {
+                months.forEach(month => {
+                    const monthData = data[month];
+                    html += renderMonth(month, monthData);
+                });
+            }
+
+            document.getElementById('scrapingContent').innerHTML = html;
+        }
+
+        function renderDateRangeStats(data) {
+            let freeMethods = [];
+            let paidMethods = [];
+            let freeTotal = 0;
+            let paidTotal = 0;
+
+            // Handle both old format (data.methods) and new format (data.freeMethods, data.paidMethods)
+            if (data.freeMethods || data.paidMethods) {
+                // New format from API
+                Object.keys(data.freeMethods || {}).forEach(method => {
+                    const methodData = data.freeMethods[method];
+                    const count = methodData.total || methodData;
+                    freeMethods.push({ method, count });
+                    freeTotal += count;
+                });
+
+                Object.keys(data.paidMethods || {}).forEach(method => {
+                    const methodData = data.paidMethods[method];
+                    const count = methodData.total || methodData;
+                    paidMethods.push({ method, count });
+                    paidTotal += count;
+                });
+            } else if (data.methods) {
+                // Old format - separate by method type
+                Object.keys(data.methods).forEach(method => {
+                    const count = data.methods[method];
+                    if (FREE_METHODS.includes(method)) {
+                        freeMethods.push({ method, count });
+                        freeTotal += count;
+                    } else if (PAID_METHODS.includes(method)) {
+                        paidMethods.push({ method, count });
+                        paidTotal += count;
+                    }
+                });
+            }
+
+            // Sort by count
+            freeMethods.sort((a, b) => b.count - a.count);
+            paidMethods.sort((a, b) => b.count - a.count);
+
+            const total = data.total;
+
+            // Render FREE methods
+            let freeTableRows = '';
+            if (freeMethods.length > 0) {
+                freeMethods.forEach(({ method, count }) => {
+                    const percentage = ((count / total) * 100).toFixed(1);
+                    freeTableRows += `
+                        <tr>
+                            <td>
+                                <div class="method-name">
+                                    <span>${METHOD_LABELS[method] || method}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="count">${count}</span>
+                                <span class="percentage">(${percentage}%)</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                freeTableRows = `
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: #666;">No free methods used in this period</td>
+                    </tr>
+                `;
+            }
+
+            // Render PAID methods
+            let paidTableRows = '';
+            if (paidMethods.length > 0) {
+                paidMethods.forEach(({ method, count }) => {
+                    const percentage = ((count / total) * 100).toFixed(1);
+                    paidTableRows += `
+                        <tr>
+                            <td>
+                                <div class="method-name">
+                                    <span>${METHOD_LABELS[method] || method}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="count">${count}</span>
+                                <span class="percentage">(${percentage}%)</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                paidTableRows = `
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: #666;">No paid methods used in this period 🎉</td>
+                    </tr>
+                `;
+            }
+
+            return `
+                <div class="month-section">
+                    <div class="month-header">
+                        <h2>Selected Period</h2>
+                        <div class="total">${total} Total Scrapes</div>
+                    </div>
+
+                    <div style="margin-bottom: 25px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <span class="badge free" style="font-size: 1rem; padding: 6px 12px;">FREE METHODS</span>
+                            <span style="font-weight: bold; color: #10b981;">${freeTotal} scrapes (${total > 0 ? ((freeTotal/total)*100).toFixed(1) : 0}%)</span>
+                        </div>
+                        <table class="methods-table">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${freeTableRows}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <span class="badge paid" style="font-size: 1rem; padding: 6px 12px;">PAID METHODS</span>
+                            <span style="font-weight: bold; color: #ef4444;">${paidTotal} scrapes (${total > 0 ? ((paidTotal/total)*100).toFixed(1) : 0}%)</span>
+                        </div>
+                        <table class="methods-table">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${paidTableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayUserActivity(users) {
+            if (users.length === 0) {
+                document.getElementById('userActivityContent').innerHTML = `
+                    <div class="no-data">
+                        <h2>No User Activity Yet</h2>
+                        <p>User activity will appear here once cover letters are generated.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let tableRows = '';
+            users.forEach(user => {
+                const successRate = user.totalAttempts > 0
+                    ? ((user.successfulGenerations / user.totalAttempts) * 100).toFixed(1)
+                    : 0;
+
+                tableRows += `
+                    <tr>
+                        <td style="color: #333;">${user.userId}</td>
+                        <td class="metric-value">${user.totalAttempts}</td>
+                        <td class="metric-value success-rate">${user.successfulGenerations}</td>
+                        <td class="metric-value failure-rate">${user.failedGenerations}</td>
+                        <td class="metric-value">${successRate}%</td>
+                        <td>
+                            <span class="method-badge url">${user.methodBreakdown.url} URL</span>
+                            <span class="method-badge manual">${user.methodBreakdown.manual} Manual</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('userActivityContent').innerHTML = `
+                <div class="user-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Total Attempts</th>
+                                <th>Successful</th>
+                                <th>Failed</th>
+                                <th>Success Rate</th>
+                                <th>Methods</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function displayAnalytics(data) {
+            // Legacy function for backward compatibility
+            displayScrapingAnalytics(data);
+        }
+
+        function displayOriginalAnalytics(data) {
+            const months = Object.keys(data).sort().reverse();
+
+            if (months.length === 0) {
+                document.getElementById('statsGrid').innerHTML = '';
+                document.getElementById('scrapingContent').innerHTML = `
+                    <div class="no-data">
+                        <h2>No Data Yet</h2>
+                        <p>Start scraping job URLs to see analytics here!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Calculate totals
+            let totalFree = 0;
+            let totalPaid = 0;
+            let grandTotal = 0;
+
+            months.forEach(month => {
+                const monthData = data[month];
+                Object.keys(monthData.methods).forEach(method => {
+                    const count = monthData.methods[method];
+                    if (FREE_METHODS.includes(method)) {
+                        totalFree += count;
+                    } else if (PAID_METHODS.includes(method)) {
+                        totalPaid += count;
+                    }
+                    grandTotal += count;
+                });
+            });
+
+            // Display summary stats
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card">
+                    <h3>Total Scrapes</h3>
+                    <div class="value">${grandTotal}</div>
+                </div>
+                <div class="stat-card free">
+                    <h3>Free Scrapes</h3>
+                    <div class="value">${totalFree}</div>
+                </div>
+                <div class="stat-card paid">
+                    <h3>Paid Scrapes</h3>
+                    <div class="value">${totalPaid}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Free Percentage</h3>
+                    <div class="value">${grandTotal > 0 ? Math.round((totalFree / grandTotal) * 100) : 0}%</div>
+                </div>
+            `;
+
+            // Display months
+            let html = '';
+            months.forEach(month => {
+                const monthData = data[month];
+                html += renderMonth(month, monthData);
+            });
+
+            document.getElementById('content').innerHTML = html;
+        }
+
+        function renderMonth(month, monthData) {
+            const monthName = new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+
+            let freeMethods = [];
+            let paidMethods = [];
+            let freeTotal = 0;
+            let paidTotal = 0;
+
+            // Separate free and paid methods
+            Object.keys(monthData.methods).forEach(method => {
+                const count = monthData.methods[method];
+                if (FREE_METHODS.includes(method)) {
+                    freeMethods.push({ method, count });
+                    freeTotal += count;
+                } else if (PAID_METHODS.includes(method)) {
+                    paidMethods.push({ method, count });
+                    paidTotal += count;
+                }
+            });
+
+            // Sort by count (descending)
+            freeMethods.sort((a, b) => b.count - a.count);
+            paidMethods.sort((a, b) => b.count - a.count);
+
+            // Render FREE methods section
+            let freeTableRows = '';
+            if (freeMethods.length > 0) {
+                freeMethods.forEach(({ method, count }) => {
+                    const percentage = ((count / monthData.total) * 100).toFixed(1);
+                    freeTableRows += `
+                        <tr>
+                            <td>
+                                <div class="method-name">
+                                    <span>${METHOD_LABELS[method] || method}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="count">${count}</span>
+                                <span class="percentage">(${percentage}%)</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                freeTableRows = `
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: #666;">No free methods used this month</td>
+                    </tr>
+                `;
+            }
+
+            // Render PAID methods section
+            let paidTableRows = '';
+            if (paidMethods.length > 0) {
+                paidMethods.forEach(({ method, count }) => {
+                    const percentage = ((count / monthData.total) * 100).toFixed(1);
+                    paidTableRows += `
+                        <tr>
+                            <td>
+                                <div class="method-name">
+                                    <span>${METHOD_LABELS[method] || method}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="count">${count}</span>
+                                <span class="percentage">(${percentage}%)</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                paidTableRows = `
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: #666;">No paid methods used this month 🎉</td>
+                    </tr>
+                `;
+            }
+
+            return `
+                <div class="month-section">
+                    <div class="month-header">
+                        <h2>${monthName}</h2>
+                        <div class="total">${monthData.total} Total Scrapes</div>
+                    </div>
+
+                    <div style="margin-bottom: 25px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <span class="badge free" style="font-size: 1rem; padding: 6px 12px;">FREE METHODS</span>
+                            <span style="font-weight: bold; color: #10b981;">${freeTotal} scrapes (${monthData.total > 0 ? ((freeTotal/monthData.total)*100).toFixed(1) : 0}%)</span>
+                        </div>
+                        <table class="methods-table">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${freeTableRows}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <span class="badge paid" style="font-size: 1rem; padding: 6px 12px;">PAID METHODS</span>
+                            <span style="font-weight: bold; color: #ef4444;">${paidTotal} scrapes (${monthData.total > 0 ? ((paidTotal/monthData.total)*100).toFixed(1) : 0}%)</span>
+                        </div>
+                        <table class="methods-table">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${paidTableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load analytics on page load
+        loadAllAnalytics();
+
+        // Refresh every 30 seconds
+        setInterval(loadAllAnalytics, 30000);
+    </script>
+</body>
+</html>

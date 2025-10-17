@@ -447,7 +447,7 @@ async function generateManualCoverLetters() {
 
     } catch (error) {
         console.error('Error:', error);
-        showError('Error generating cover letters: ' + error.message);
+        showError('Unable to generate cover letters. Please check your inputs and try again.');
     } finally {
         hideLoading();
     }

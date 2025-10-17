@@ -206,7 +206,187 @@ const usageOps = {
   }
 };
 
+// Analytics operations
+const analyticsOps = {
+  // Track a scraping attempt
+  trackScrapingAttempt: async (userId, jobUrl, method, isFree, success, errorMessage = null) => {
+    try {
+      const { error } = await supabase
+        .from('scraping_analytics')
+        .insert({
+          user_id: userId,
+          job_url: jobUrl,
+          scraping_method: method,
+          is_free_method: isFree,
+          success: success,
+          error_message: errorMessage
+        });
+
+      if (error) {
+        console.error('Error tracking scraping attempt:', error);
+      }
+    } catch (err) {
+      console.error('Error tracking scraping attempt:', err);
+    }
+  },
+
+  // Track a cover letter generation attempt
+  trackGenerationAttempt: async (userId, jobUrl, isManual, success, errorMessage = null, timeMs = null) => {
+    try {
+      const { error } = await supabase
+        .from('generation_analytics')
+        .insert({
+          user_id: userId,
+          job_url: jobUrl,
+          is_manual_paste: isManual,
+          success: success,
+          error_message: errorMessage,
+          generation_time_ms: timeMs
+        });
+
+      if (error) {
+        console.error('Error tracking generation attempt:', error);
+      }
+    } catch (err) {
+      console.error('Error tracking generation attempt:', err);
+    }
+  },
+
+  // Get scraping analytics (grouped by method and free/paid)
+  getScrapingAnalytics: async (rangeType = 'all') => {
+    try {
+      let query = supabase
+        .from('scraping_analytics')
+        .select('scraping_method, is_free_method, success');
+
+      // Apply date filter based on range type
+      if (rangeType === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        query = query.gte('created_at', today.toISOString());
+      } else if (rangeType === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('created_at', weekAgo.toISOString());
+      } else if (rangeType === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        query = query.gte('created_at', monthAgo.toISOString());
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error getting scraping analytics:', error);
+        return { total: 0, freeMethods: {}, paidMethods: {} };
+      }
+
+      // Aggregate the data
+      const stats = {
+        total: data.length,
+        freeMethods: {},
+        paidMethods: {}
+      };
+
+      data.forEach(row => {
+        const method = row.scraping_method;
+        const isFree = row.is_free_method;
+        const category = isFree ? 'freeMethods' : 'paidMethods';
+
+        if (!stats[category][method]) {
+          stats[category][method] = { total: 0, successful: 0, failed: 0 };
+        }
+
+        stats[category][method].total++;
+        if (row.success) {
+          stats[category][method].successful++;
+        } else {
+          stats[category][method].failed++;
+        }
+      });
+
+      return stats;
+    } catch (err) {
+      console.error('Error getting scraping analytics:', err);
+      return { total: 0, freeMethods: {}, paidMethods: {} };
+    }
+  },
+
+  // Get user activity analytics (grouped by user)
+  getUserActivity: async (rangeType = 'all') => {
+    try {
+      let query = supabase
+        .from('generation_analytics')
+        .select('user_id, job_url, is_manual_paste, success');
+
+      // Apply date filter based on range type
+      if (rangeType === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        query = query.gte('created_at', today.toISOString());
+      } else if (rangeType === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('created_at', weekAgo.toISOString());
+      } else if (rangeType === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        query = query.gte('created_at', monthAgo.toISOString());
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error getting user activity:', error);
+        return { data: [] };
+      }
+
+      // Aggregate by user
+      const userMap = {};
+
+      data.forEach(row => {
+        const userId = row.user_id;
+
+        if (!userMap[userId]) {
+          userMap[userId] = {
+            userId: userId,
+            totalAttempts: 0,
+            successfulGenerations: 0,
+            failedGenerations: 0,
+            methodBreakdown: {
+              url: 0,
+              manual: 0
+            }
+          };
+        }
+
+        userMap[userId].totalAttempts++;
+
+        if (row.success) {
+          userMap[userId].successfulGenerations++;
+        } else {
+          userMap[userId].failedGenerations++;
+        }
+
+        if (row.is_manual_paste) {
+          userMap[userId].methodBreakdown.manual++;
+        } else {
+          userMap[userId].methodBreakdown.url++;
+        }
+      });
+
+      return {
+        data: Object.values(userMap)
+      };
+    } catch (err) {
+      console.error('Error getting user activity:', err);
+      return { data: [] };
+    }
+  }
+};
+
 module.exports = {
   userOps,
-  usageOps
+  usageOps,
+  analyticsOps
 };

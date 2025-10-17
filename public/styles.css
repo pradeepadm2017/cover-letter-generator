@@ -547,6 +547,23 @@ button {
     background-color: #dc2626;
 }
 
+.btn-extension-link {
+    padding: 8px 16px;
+    background-color: #10b981;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+.btn-extension-link:hover {
+    background-color: #059669;
+}
+
 /* Modal Styles */
 .modal {
     position: fixed;
@@ -881,6 +898,112 @@ button {
 
 .promo-message.hidden {
     display: none;
+}
+
+/* Welcome Modal Styles */
+.welcome-modal-content {
+    max-width: 600px;
+}
+
+.welcome-content {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.welcome-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.welcome-content h3 {
+    color: #111827;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.welcome-content > p {
+    color: #6b7280;
+    font-size: 16px;
+    margin-bottom: 30px;
+}
+
+.welcome-benefits {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    text-align: left;
+    margin-bottom: 30px;
+    padding: 0 20px;
+}
+
+.benefit-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+}
+
+.benefit-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+.benefit-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.benefit-text strong {
+    color: #111827;
+    font-size: 16px;
+}
+
+.benefit-text span {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.welcome-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.btn-primary.btn-large {
+    padding: 14px 28px;
+    font-size: 16px;
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.btn-primary.btn-large:hover {
+    background-color: #1d4ed8;
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 8px;
+    transition: color 0.2s;
+}
+
+.btn-text:hover {
+    color: #111827;
+}
+
+.welcome-note {
+    color: #9ca3af;
+    font-size: 13px;
+    font-style: italic;
 }
 
 /* Generation Summary */

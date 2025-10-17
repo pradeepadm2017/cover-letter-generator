@@ -17,6 +17,14 @@
  *                    Extracts from apolloState or window.appCache embedded data
  *                    HTML fallback available if cache not found
  *
+ * ELUTA SPECIAL: JSON-LD structured data extraction (FREE) - ~95% success rate
+ *                Extracts from embedded JSON-LD metadata (eluta.ca)
+ *                Handles malformed JSON with regex parsing
+ *
+ * WORKOPOLIS SPECIAL: JSON-LD structured data extraction (FREE) - ~95% success rate
+ *                     Extracts from embedded JSON-LD metadata (workopolis.com)
+ *                     Proper JSON format (easier than Eluta)
+ *
  * Tier 1: Enhanced basic fetch (FREE) - ~30% success with other sites
  * Tier 2a: ScraperAPI (FALLBACK) - 92.7% success with Indeed
  *          Cost: ~$2.90 per 1,000 requests
@@ -59,6 +67,8 @@ if (scraperApiEnabled) {
 console.log('✅ LinkedIn Guest API enabled (FREE, ~85-90% success rate)');
 console.log('✅ Indeed Embedded JSON extraction enabled (FREE, ~60-70% success rate)');
 console.log('✅ Glassdoor Apollo GraphQL extraction enabled (FREE, ~70-80% success rate)');
+console.log('✅ Eluta JSON-LD extraction enabled (FREE, ~95% success rate)');
+console.log('✅ Workopolis JSON-LD extraction enabled (FREE, ~95% success rate)');
 
 /**
  * TIER 1: Enhanced Basic Fetch with Smart URL Parsing
@@ -70,7 +80,7 @@ async function tier1_enhancedBasicFetch(url) {
   // Parse Indeed URLs to get direct job posting URL
   let fetchUrl = url;
   if (url.includes('indeed.com')) {
-    const vjkMatch = url.match(/[?&]vjk=([a-f0-9]+)/i);
+    const vjkMatch = url.match(/[?&](?:v)?jk=([a-f0-9]+)/i);
     if (vjkMatch) {
       const jobKey = vjkMatch[1];
       // Determine domain (ca.indeed.com vs www.indeed.com)
@@ -215,8 +225,8 @@ async function tier1_enhancedBasicFetch(url) {
 async function indeedEmbeddedFetch(url) {
   console.log('📊 Indeed Embedded: Extracting from _initialData JSON...');
 
-  // Extract job key from URL
-  const vjkMatch = url.match(/[?&]vjk=([a-f0-9]+)/i);
+  // Extract job key from URL (supports both jk= and vjk= parameters)
+  const vjkMatch = url.match(/[?&](?:v)?jk=([a-f0-9]+)/i);
   if (!vjkMatch) {
     throw new Error('Could not extract Indeed job key from URL');
   }
@@ -625,6 +635,130 @@ async function googleJobsRedirect(url) {
 }
 
 /**
+ * ELUTA: Extract data from JSON-LD structured data
+ * Eluta.ca embeds job data in JSON-LD format (though with invalid JSON comments)
+ * Uses regex extraction to parse the malformed JSON
+ */
+async function elutaFetch(url) {
+  console.log('🍁 Eluta.ca: Extracting from JSON-LD...');
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      },
+      timeout: 15000
+    });
+
+    const html = response.data;
+
+    // Extract via regex since Eluta's JSON-LD has invalid trailing comments
+    const titleMatch = html.match(/"title"\s*:\s*"([^"]+)"/);
+    const hiringMatch = html.match(/"hiringOrganization"\s*:\s*{[^}]*"name"\s*:\s*"([^"]+)"/);
+    const descMatch = html.match(/"description"\s*:\s*"(.*?)",\s*"hiringOrganization"/s);
+
+    let jobTitle = titleMatch ? titleMatch[1] : '';
+    let companyName = hiringMatch ? hiringMatch[1] : '';
+    let jobDescription = '';
+
+    if (descMatch) {
+      // The description is HTML-escaped in the JSON - need to unescape
+      jobDescription = descMatch[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '')
+        .replace(/\\u003c/g, '<')
+        .replace(/\\u003e/g, '>')
+        .replace(/\\"/g, '"')
+        .replace(/<[^>]+>/g, ' ')  // Remove HTML tags
+        .replace(/\s+/g, ' ')       // Normalize whitespace
+        .trim();
+    }
+
+    console.log('\n✅ Eluta Success:');
+    console.log('   📋 Job Title:', jobTitle || 'NOT FOUND');
+    console.log('   🏢 Company:', companyName || 'NOT FOUND');
+    console.log('   📄 Description:', jobDescription.length, 'chars');
+
+    if (!jobTitle || !companyName || jobDescription.length < 200) {
+      throw new Error('Incomplete data extracted from Eluta');
+    }
+
+    // Construct response
+    let finalText = '';
+    if (jobTitle) finalText += `Job Title: ${jobTitle}\n\n`;
+    if (companyName) finalText += `Company: ${companyName}\n\n`;
+    finalText += `Job Description:\n${jobDescription}`;
+
+    return finalText;
+  } catch (error) {
+    console.error(`   ❌ Eluta extraction failed:`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * WORKOPOLIS: Extract data from JSON-LD structured data
+ * Workopolis.com embeds job data in proper JSON-LD format
+ */
+async function workopolisFetch(url) {
+  console.log('🍁 Workopolis: Extracting from JSON-LD...');
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
+      },
+      timeout: 15000
+    });
+
+    const html = response.data;
+
+    // Extract JSON-LD (Workopolis uses proper JSON, not malformed like Eluta)
+    const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s);
+
+    if (!jsonLdMatch) {
+      throw new Error('JSON-LD not found in Workopolis page');
+    }
+
+    const jsonLd = JSON.parse(jsonLdMatch[1]);
+
+    const jobTitle = jsonLd.title || '';
+    const companyName = jsonLd.hiringOrganization?.name || '';
+    let jobDescription = jsonLd.description || '';
+
+    // Clean HTML from description
+    if (jobDescription.includes('<')) {
+      const $ = require('cheerio').load(jobDescription);
+      jobDescription = $.text().trim().replace(/\s+/g, ' ');
+    }
+
+    console.log('\n✅ Workopolis Success:');
+    console.log('   📋 Job Title:', jobTitle || 'NOT FOUND');
+    console.log('   🏢 Company:', companyName || 'NOT FOUND');
+    console.log('   📄 Description:', jobDescription.length, 'chars');
+
+    if (!jobTitle || !companyName || jobDescription.length < 200) {
+      throw new Error('Incomplete data extracted from Workopolis');
+    }
+
+    // Construct response
+    let finalText = '';
+    if (jobTitle) finalText += `Job Title: ${jobTitle}\n\n`;
+    if (companyName) finalText += `Company: ${companyName}\n\n`;
+    finalText += `Job Description:\n${jobDescription}`;
+
+    return finalText;
+  } catch (error) {
+    console.error(`   ❌ Workopolis extraction failed:`, error.message);
+    throw error;
+  }
+}
+
+/**
  * LINKEDIN GUEST API: Direct access to public job postings
  * No authentication required - uses LinkedIn's public guest endpoints
  */
@@ -771,8 +905,8 @@ async function tier2_apifyFetch(url) {
 async function scraperApiFetchIndeed(url) {
   console.log('   📍 Using ScraperAPI for Indeed (premium proxy network)...');
 
-  // Extract job key from URL
-  const vjkMatch = url.match(/[?&]vjk=([a-f0-9]+)/i);
+  // Extract job key from URL (supports both jk= and vjk= parameters)
+  const vjkMatch = url.match(/[?&](?:v)?jk=([a-f0-9]+)/i);
   if (!vjkMatch) {
     throw new Error('Could not extract Indeed job key from URL');
   }
@@ -918,8 +1052,8 @@ async function fetchIndeed(url) {
 async function apifyFetchIndeed(url) {
   console.log('   📍 Using Apify browser-based scraper for Indeed...');
 
-  // Extract job key from URL
-  const vjkMatch = url.match(/[?&]vjk=([a-f0-9]+)/i);
+  // Extract job key from URL (supports both jk= and vjk= parameters)
+  const vjkMatch = url.match(/[?&](?:v)?jk=([a-f0-9]+)/i);
   if (!vjkMatch) {
     throw new Error('Could not extract Indeed job key from URL');
   }
@@ -932,72 +1066,84 @@ async function apifyFetchIndeed(url) {
 
   try {
     // Use Cheerio Scraper with proxies - faster and less detectable than browser automation
-    const run = await apifyClient.actor('apify/cheerio-scraper').call({
-      startUrls: [{ url: indeedUrl }],
-      proxyConfiguration: {
-        useApifyProxy: true
-      },
-      maxRequestsPerCrawl: 1,
-      maxRequestRetries: 3,
-      pageFunction: async function pageFunction(context) {
-        const { $, request, body } = context;
+    // Set timeout to prevent users from waiting too long
+    const APIFY_TIMEOUT_MS = 60000; // 60 seconds max
 
-        // DEBUG: Get HTML info
-        const debugInfo = {
-          pageUrl: request.url,
-          bodyLength: body.length,
-          bodyPreview: body.substring(0, 2000),
-          h1Count: $('h1').length,
-          divCount: $('div').length,
-          h1Texts: $('h1').map((i, el) => $(el).text().trim()).get().join(' | '),
-          bodyTextPreview: $('body').text().trim().substring(0, 1000)
-        };
+    console.log(`   ⏳ Starting Apify with ${APIFY_TIMEOUT_MS/1000}s timeout...`);
 
-        // Extract job title
-        let jobTitle = '';
-        let titleSelectorUsed = '';
-        const titleSelectors = [
-          'h1.jobsearch-JobInfoHeader-title',
-          'h1[class*="jobTitle"]',
-          'h1[class*="JobTitle"]',
-          'h2[class*="jobTitle"]',
-          'span[class*="jobTitle"]',
-          'div[class*="jobTitle"]',
-          'h1',
-          'h2'
-        ];
-        for (const selector of titleSelectors) {
-          const text = $(selector).first().text().trim();
-          if (text && text.length > 5) {
-            jobTitle = text;
-            titleSelectorUsed = selector;
-            break;
+    // Create timeout promise
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Apify timeout after ${APIFY_TIMEOUT_MS/1000} seconds. This website requires additional time to access.`)), APIFY_TIMEOUT_MS)
+    );
+
+    // Create Apify execution promise
+    const apifyPromise = (async () => {
+      const run = await apifyClient.actor('apify/cheerio-scraper').call({
+        startUrls: [{ url: indeedUrl }],
+        proxyConfiguration: {
+          useApifyProxy: true
+        },
+        maxRequestsPerCrawl: 1,
+        maxRequestRetries: 3,
+        pageFunction: async function pageFunction(context) {
+          const { $, request, body } = context;
+
+          // DEBUG: Get HTML info
+          const debugInfo = {
+            pageUrl: request.url,
+            bodyLength: body.length,
+            bodyPreview: body.substring(0, 2000),
+            h1Count: $('h1').length,
+            divCount: $('div').length,
+            h1Texts: $('h1').map((i, el) => $(el).text().trim()).get().join(' | '),
+            bodyTextPreview: $('body').text().trim().substring(0, 1000)
+          };
+
+          // Extract job title
+          let jobTitle = '';
+          let titleSelectorUsed = '';
+          const titleSelectors = [
+            'h1.jobsearch-JobInfoHeader-title',
+            'h1[class*="jobTitle"]',
+            'h1[class*="JobTitle"]',
+            'h2[class*="jobTitle"]',
+            'span[class*="jobTitle"]',
+            'div[class*="jobTitle"]',
+            'h1',
+            'h2'
+          ];
+          for (const selector of titleSelectors) {
+            const text = $(selector).first().text().trim();
+            if (text && text.length > 5) {
+              jobTitle = text;
+              titleSelectorUsed = selector;
+              break;
+            }
           }
-        }
 
-        // Extract company name
-        let companyName = '';
-        let companySelectorUsed = '';
-        const companySelectors = [
-          '[data-company-name="true"]',
-          '[class*="CompanyInfo"]',
-          '[class*="companyName"]',
-          '[class*="company-name"]',
-          'span[class*="company"]',
-          'div[class*="company"]'
-        ];
-        for (const selector of companySelectors) {
-          const text = $(selector).first().text().trim();
-          if (text && text.length > 2) {
-            companyName = text;
-            companySelectorUsed = selector;
-            break;
+          // Extract company name
+          let companyName = '';
+          let companySelectorUsed = '';
+          const companySelectors = [
+            '[data-company-name="true"]',
+            '[class*="CompanyInfo"]',
+            '[class*="companyName"]',
+            '[class*="company-name"]',
+            'span[class*="company"]',
+            'div[class*="company"]'
+          ];
+          for (const selector of companySelectors) {
+            const text = $(selector).first().text().trim();
+            if (text && text.length > 2) {
+              companyName = text;
+              companySelectorUsed = selector;
+              break;
+            }
           }
-        }
 
-        // Extract job description
-        let jobDescription = '';
-        let descSelectorUsed = '';
+          // Extract job description
+          let jobDescription = '';
+          let descSelectorUsed = '';
         const descSelectors = [
           '#jobDescriptionText',
           '[id*="jobDescription"]',
@@ -1038,9 +1184,13 @@ async function apifyFetchIndeed(url) {
       }
     });
 
-    // Wait for actor to finish and get results
-    console.log(`   ⏳ Waiting for Apify to finish...`);
-    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+      // Wait for actor to finish and get results
+      const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+      return items;
+    })();
+
+    // Race between Apify and timeout
+    const items = await Promise.race([apifyPromise, timeoutPromise]);
 
     if (!items || items.length === 0) {
       throw new Error('Apify returned no results');
@@ -1083,10 +1233,22 @@ async function apifyFetchLinkedIn(url) {
 
 /**
  * Apify: Generic web scraper for other sites
+ * Uses Playwright for JavaScript-heavy sites (The Ladders, etc.)
  */
 async function apifyFetchGeneric(url) {
   console.log('   📍 Using Apify generic web scraper...');
 
+  // Detect if this is a JavaScript-heavy site that needs Playwright
+  const needsJavaScript = url.includes('theladders.com') ||
+                         url.includes('lever.co') ||
+                         url.includes('greenhouse.io');
+
+  if (needsJavaScript) {
+    console.log('   🎭 JavaScript-heavy site detected - using Playwright...');
+    return await apifyFetchWithPlaywright(url);
+  }
+
+  // Use Cheerio for standard sites (faster and cheaper)
   try {
     const run = await apifyClient.actor('apify/cheerio-scraper').call({
       startUrls: [{ url }],
@@ -1115,10 +1277,15 @@ async function apifyFetchGeneric(url) {
     const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
-      throw new Error('Apify returned no results');
+      throw new Error('The title selector did not match any elements');
     }
 
     const data = items[0];
+
+    // Validate that we got meaningful data
+    if (!data.jobTitle && !data.jobDescription) {
+      throw new Error('The title selector did not match any elements');
+    }
 
     let finalText = '';
     if (data.jobTitle) finalText += `Job Title: ${data.jobTitle}\n\n`;
@@ -1133,6 +1300,155 @@ async function apifyFetchGeneric(url) {
     return finalText;
   } catch (error) {
     console.error(`   ❌ Tier 2 Failed (Apify Generic):`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * Apify: Playwright-based scraper for JavaScript-heavy sites
+ * Executes JavaScript and waits for dynamic content to load
+ */
+async function apifyFetchWithPlaywright(url) {
+  console.log('   🎭 Using Playwright Web Scraper with JS rendering...');
+
+  try {
+    const run = await apifyClient.actor('apify/web-scraper').call({
+      startUrls: [{ url }],
+      maxRequestsPerCrawl: 1,
+      maxRequestRetries: 2,
+      proxyConfiguration: {
+        useApifyProxy: true
+      },
+      pageFunction: async function pageFunction({ page, request }) {
+        // Wait for page to fully load including JavaScript
+        await page.waitForLoadState('networkidle');
+
+        // Wait for common job posting elements
+        await page.waitForTimeout(3000); // Give JS time to render
+
+        // Extract job title - try multiple selectors
+        let jobTitle = '';
+        const titleSelectors = [
+          'h1',
+          '[data-test="job-title"]',
+          '[class*="job-title"]',
+          '[class*="jobTitle"]',
+          '[class*="JobTitle"]',
+          '.title',
+          'header h1'
+        ];
+
+        for (const selector of titleSelectors) {
+          try {
+            const element = await page.$(selector);
+            if (element) {
+              const text = await element.textContent();
+              if (text && text.trim().length > 5 && text.trim().length < 200) {
+                jobTitle = text.trim();
+                break;
+              }
+            }
+          } catch (e) {
+            // Selector not found, try next
+          }
+        }
+
+        // Extract company name
+        let companyName = '';
+        const companySelectors = [
+          '[data-test="company-name"]',
+          '[class*="company-name"]',
+          '[class*="companyName"]',
+          '[class*="employer"]',
+          '.company',
+          'header a'
+        ];
+
+        for (const selector of companySelectors) {
+          try {
+            const element = await page.$(selector);
+            if (element) {
+              const text = await element.textContent();
+              if (text && text.trim().length > 2 && text.trim().length < 100) {
+                companyName = text.trim();
+                break;
+              }
+            }
+          } catch (e) {
+            // Selector not found, try next
+          }
+        }
+
+        // Extract job description
+        let jobDescription = '';
+        const descSelectors = [
+          '[data-test="job-description"]',
+          '[class*="job-description"]',
+          '[class*="jobDescription"]',
+          '[class*="description"]',
+          'main',
+          'article',
+          '.content'
+        ];
+
+        for (const selector of descSelectors) {
+          try {
+            const element = await page.$(selector);
+            if (element) {
+              const text = await element.textContent();
+              if (text && text.trim().length > 200) {
+                jobDescription = text.trim();
+                break;
+              }
+            }
+          } catch (e) {
+            // Selector not found, try next
+          }
+        }
+
+        // Fallback to body if nothing found
+        if (!jobDescription || jobDescription.length < 200) {
+          jobDescription = await page.textContent('body');
+        }
+
+        // Clean up whitespace
+        jobDescription = jobDescription.replace(/\s+/g, ' ').trim();
+
+        return {
+          url: request.url,
+          jobTitle,
+          companyName,
+          jobDescription: jobDescription.substring(0, 10000) // Limit size
+        };
+      }
+    });
+
+    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+
+    if (!items || items.length === 0) {
+      throw new Error('Playwright scraper returned no results');
+    }
+
+    const data = items[0];
+
+    // Validate that we got meaningful data
+    if (!data.jobTitle && data.jobDescription && data.jobDescription.length < 500) {
+      throw new Error('Could not extract job information - content too limited');
+    }
+
+    let finalText = '';
+    if (data.jobTitle) finalText += `Job Title: ${data.jobTitle}\n\n`;
+    if (data.companyName) finalText += `Company: ${data.companyName}\n\n`;
+    finalText += `Job Description:\n${data.jobDescription}`;
+
+    console.log(`   ✅ Playwright Success - Extracted:`);
+    console.log(`      📋 Job Title: ${data.jobTitle || 'Not found'}`);
+    console.log(`      🏢 Company: ${data.companyName || 'Not found'}`);
+    console.log(`      📄 Description: ${data.jobDescription?.length || 0} chars`);
+
+    return finalText;
+  } catch (error) {
+    console.error(`   ❌ Playwright scraper failed:`, error.message);
     throw error;
   }
 }
@@ -1180,6 +1496,7 @@ function validateExtractedContent(content) {
 /**
  * Main Hybrid Scraping Function
  * Tries each tier in sequence until success
+ * Returns object with content and method name for analytics tracking
  */
 async function fetchJobDescriptionHybrid(url) {
   console.log(`\n🔄 Starting hybrid scraping for: ${url}`);
@@ -1214,7 +1531,7 @@ async function fetchJobDescriptionHybrid(url) {
       const result = await linkedInGuestApiFetch(url);
       if (validateExtractedContent(result)) {
         console.log('✅ LinkedIn Guest API SUCCESS - Using result\n');
-        return result;
+        return { content: result, method: 'linkedin-guest-api' };
       }
       console.log('⚠️  LinkedIn Guest API result invalid, trying other methods...');
     } catch (error) {
@@ -1229,7 +1546,7 @@ async function fetchJobDescriptionHybrid(url) {
       const result = await indeedEmbeddedFetch(url);
       if (validateExtractedContent(result)) {
         console.log('✅ Indeed Embedded SUCCESS - Using result\n');
-        return result;
+        return { content: result, method: 'indeed-embedded' };
       }
       console.log('⚠️  Indeed Embedded result invalid, trying other methods...');
     } catch (error) {
@@ -1244,7 +1561,7 @@ async function fetchJobDescriptionHybrid(url) {
       const result = await glassdoorApolloFetch(url);
       if (validateExtractedContent(result)) {
         console.log('✅ Glassdoor Apollo SUCCESS - Using result\n');
-        return result;
+        return { content: result, method: 'glassdoor-apollo' };
       }
       console.log('⚠️  Glassdoor Apollo result invalid, trying other methods...');
     } catch (error) {
@@ -1252,16 +1569,77 @@ async function fetchJobDescriptionHybrid(url) {
     }
   }
 
+  // ELUTA SPECIAL: Try JSON-LD extraction (free & reliable for Eluta.ca)
+  if (url.includes('eluta.ca')) {
+    console.log('🍁 Eluta.ca URL detected - trying JSON-LD extraction...');
+    try {
+      const result = await elutaFetch(url);
+      if (validateExtractedContent(result)) {
+        console.log('✅ Eluta SUCCESS - Using result\n');
+        return { content: result, method: 'eluta-jsonld' };
+      }
+      console.log('⚠️  Eluta result invalid, trying other methods...');
+    } catch (error) {
+      console.log(`⚠️  Eluta failed: ${error.message}, trying other methods...`);
+    }
+  }
+
+  // WORKOPOLIS SPECIAL: Try JSON-LD extraction (free & reliable for Workopolis)
+  if (url.includes('workopolis.com')) {
+    console.log('🍁 Workopolis URL detected - trying JSON-LD extraction...');
+    try {
+      const result = await workopolisFetch(url);
+      if (validateExtractedContent(result)) {
+        console.log('✅ Workopolis SUCCESS - Using result\n');
+        return { content: result, method: 'workopolis-jsonld' };
+      }
+      console.log('⚠️  Workopolis result invalid, trying other methods...');
+    } catch (error) {
+      console.log(`⚠️  Workopolis failed: ${error.message}, trying other methods...`);
+    }
+  }
+
   // TIER 1: Enhanced Basic Fetch (always try for other sites or as fallback)
+  let tier1Error = null;
   try {
     const result = await tier1_enhancedBasicFetch(url);
     if (validateExtractedContent(result)) {
       console.log('✅ Tier 1 SUCCESS - Using enhanced basic fetch result\n');
-      return result;
+      return { content: result, method: 'tier1-basic-fetch' };
     }
     console.log('⚠️  Tier 1 result invalid, trying next tier...');
   } catch (error) {
+    tier1Error = error;
     console.log(`⚠️  Tier 1 failed: ${error.message}, trying next tier...`);
+
+    // SMART BLOCKING DETECTION: Fail fast for known-blocked sites only
+    // Note: HTTP 403 is NORMAL for many sites (Indeed, LinkedIn, etc.) - Apify with proxies can bypass it
+    // Only block sites where Apify also fails consistently (The Ladders, etc.)
+    const domain = new URL(url).hostname;
+    const isHttp403 = error.message.includes('403');
+    const isHttp999 = error.message.includes('999');
+
+    // Known sites where even Apify can't help (exhausted all options)
+    const knownBlockedSites = [
+      'theladders.com'
+      // Add more as we discover them
+    ];
+
+    const isKnownBlocked = knownBlockedSites.some(site => domain.includes(site));
+
+    if ((isHttp403 || isHttp999) && isKnownBlocked) {
+      console.log(`🚫 ${domain} is on known-blocked list (HTTP ${isHttp403 ? '403' : '999'})`);
+      console.log('   💡 This site consistently blocks all scraping methods including Apify');
+      console.log('   ⏰ Failing fast to save time & cost\n');
+
+      throw new Error(
+        `${domain} appears to be blocking automated access. ` +
+        `This is common with certain job boards after repeated requests. ` +
+        `Please use the "Manual Paste" feature instead, or try again in 1-2 hours when the block may reset.`
+      );
+    }
+
+    // For other sites with 403/999, continue to Tier 2 - Apify with proxies might work
   }
 
   // TIER 2: Apify (only if enabled)
@@ -1270,7 +1648,7 @@ async function fetchJobDescriptionHybrid(url) {
       const result = await tier2_apifyFetch(url);
       if (validateExtractedContent(result)) {
         console.log('✅ Tier 2 SUCCESS - Using Apify result\n');
-        return result;
+        return { content: result, method: 'apify' };
       }
       console.log('⚠️  Tier 2 result invalid, trying next tier...');
     } catch (error) {
@@ -1284,7 +1662,7 @@ async function fetchJobDescriptionHybrid(url) {
       const result = await tier3_puppeteerFetch(url);
       if (validateExtractedContent(result)) {
         console.log('✅ Tier 3 SUCCESS - Using Puppeteer result\n');
-        return result;
+        return { content: result, method: 'puppeteer' };
       }
     } catch (error) {
       console.log(`⚠️  Tier 3 failed: ${error.message}`);

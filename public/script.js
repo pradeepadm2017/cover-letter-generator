@@ -135,7 +135,7 @@ async function logout() {
     }
 }
 
-// Tab switching function
+// Tab switching function for resume
 function switchResumeTab(tabType) {
     const textTab = document.getElementById('text-resume-tab');
     const fileTab = document.getElementById('file-resume-tab');
@@ -159,7 +159,20 @@ function switchResumeTab(tabType) {
     updateGenerateButtonState();
 }
 
-// Removed manual paste tab logic - now handled on dedicated page
+// Mode switching function (URL vs Manual)
+function switchInputMode(mode) {
+    const urlSection = document.getElementById('url-mode-section');
+    const manualSection = document.getElementById('manual-mode-section');
+
+    if (mode === 'url') {
+        urlSection.classList.remove('hidden');
+        manualSection.classList.add('hidden');
+    } else {
+        urlSection.classList.add('hidden');
+        manualSection.classList.remove('hidden');
+    }
+    updateGenerateButtonState();
+}
 
 // Handle file upload
 async function handleResumeFileUpload(input) {
@@ -312,23 +325,20 @@ function removeJobUrl(button) {
 
 function getJobUrls() {
     // Check which mode is active
-    const urlMode = document.querySelector('input[name="input-mode"][value="url"]').checked;
-
-    if (urlMode) {
-        // URL mode: get job URLs
-        const jobUrlInputs = document.querySelectorAll('.job-url');
+    const urlSection = document.getElementById('url-mode-section');
+    if (!urlSection.classList.contains('hidden')) {
+        // URL mode - get URLs
+        const urlInputs = document.querySelectorAll('.job-url');
         const urls = [];
-
-        jobUrlInputs.forEach(input => {
+        urlInputs.forEach(input => {
             const url = input.value.trim();
             if (url) {
-                urls.push(url);
+                urls.push({ url: url, isManual: false });
             }
         });
-
         return urls;
     } else {
-        // Manual mode: get manual jobs
+        // Manual mode - get manual jobs
         return getManualJobs();
     }
 }
@@ -358,21 +368,7 @@ function getResumeText() {
     }
 }
 
-// Switch between URL and Manual input modes
-function switchInputMode(mode) {
-    const urlSection = document.getElementById('url-mode-section');
-    const manualSection = document.getElementById('manual-mode-section');
-
-    if (mode === 'url') {
-        urlSection.classList.remove('hidden');
-        manualSection.classList.add('hidden');
-    } else {
-        urlSection.classList.add('hidden');
-        manualSection.classList.remove('hidden');
-    }
-
-    updateGenerateButtonState();
-}
+// Mode switching removed - extension-only mode now
 
 // Add a manual job input card
 function addManualJob() {
@@ -695,7 +691,7 @@ async function generateAllCoverLetters() {
         }
 
     } catch (error) {
-        showError('Error generating cover letters: ' + error.message);
+        showError('Unable to generate cover letters. Please check your inputs and try again.');
     } finally {
         hideLoading();
     }
@@ -921,10 +917,11 @@ function downloadFile(fileName, base64Data) {
     }
 }
 
-// Close modal when clicking outside
+// Close modals when clicking outside
 window.onclick = function(event) {
-    const modal = document.getElementById('subscription-modal');
-    if (event.target === modal) {
+    const subscriptionModal = document.getElementById('subscription-modal');
+
+    if (event.target === subscriptionModal) {
         toggleSubscriptionModal();
     }
 }
