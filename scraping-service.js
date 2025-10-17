@@ -1065,22 +1065,22 @@ async function scraperApiFetchIndeed(url) {
 }
 
 /**
- * Fetch Indeed job - tries ScraperAPI first, then falls back to Apify
+ * Fetch Indeed job - tries Apify first (cheaper), then falls back to ScraperAPI
  */
 async function fetchIndeed(url) {
-  // Try ScraperAPI first if enabled (more reliable for Indeed)
-  if (isScraperApiEnabled()) {
+  // Try Apify first if enabled (cheaper at $0.001/request vs ScraperAPI $0.00458/request)
+  if (getApifyClient()) {
     try {
-      return await scraperApiFetchIndeed(url);
+      return await apifyFetchIndeed(url);
     } catch (error) {
-      console.log(`   ⚠️  ScraperAPI failed: ${error.message}`);
-      console.log('   🔄 Falling back to Apify...');
+      console.log(`   ⚠️  Apify failed: ${error.message}`);
+      console.log('   🔄 Falling back to ScraperAPI...');
     }
   }
 
-  // Fall back to Apify if ScraperAPI not available or failed
-  if (getApifyClient()) {
-    return await apifyFetchIndeed(url);
+  // Fall back to ScraperAPI if Apify not available or failed
+  if (isScraperApiEnabled()) {
+    return await scraperApiFetchIndeed(url);
   }
 
   throw new Error('No advanced scraping service available for Indeed');
