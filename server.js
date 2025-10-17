@@ -353,6 +353,11 @@ app.get('/manual-paste', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'manual-paste.html'));
 });
 
+// Route to serve the analytics dashboard
+app.get('/analytics', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'analytics.html'));
+});
+
 // Analytics API endpoints
 app.get('/api/scraping-analytics', async (req, res) => {
   try {
