@@ -822,8 +822,12 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
               scrapingMethod = 'basic-fetch';
 
               try {
-                console.log(`🔍 ENV CHECK: ENABLE_APIFY_SCRAPING=${process.env.ENABLE_APIFY_SCRAPING}, ENABLE_PUPPETEER_FALLBACK=${process.env.ENABLE_PUPPETEER_FALLBACK}`);
-                if (process.env.ENABLE_APIFY_SCRAPING === 'true' || process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
+                // Trim environment variables to handle any whitespace/newlines
+                const enableApify = (process.env.ENABLE_APIFY_SCRAPING || '').trim();
+                const enablePuppeteer = (process.env.ENABLE_PUPPETEER_FALLBACK || '').trim();
+
+                console.log(`🔍 ENV CHECK: ENABLE_APIFY_SCRAPING="${enableApify}" (raw: "${process.env.ENABLE_APIFY_SCRAPING}"), ENABLE_PUPPETEER_FALLBACK="${enablePuppeteer}" (raw: "${process.env.ENABLE_PUPPETEER_FALLBACK}")`);
+                if (enableApify === 'true' || enablePuppeteer === 'true') {
                   console.log('🚀 Using HYBRID scraping approach (feature-flagged)');
                   const hybridResult = await scrapingService.fetchJobDescriptionHybrid(jobUrl);
 
