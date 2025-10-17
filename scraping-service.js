@@ -1096,7 +1096,6 @@ async function apifyFetchIndeed(url) {
 
     // Wait for actor to finish and get results
     console.log(`   ⏳ Waiting for Apify to finish...`);
-    const client = getApifyClient();
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
@@ -1170,7 +1169,6 @@ async function apifyFetchGeneric(url) {
       }
     });
 
-    const client = getApifyClient();
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
