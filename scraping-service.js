@@ -1071,7 +1071,14 @@ async function fetchIndeed(url) {
   // Try Apify first if enabled (cheaper at $0.001/request vs ScraperAPI $0.00458/request)
   if (getApifyClient()) {
     try {
-      return await apifyFetchIndeed(url);
+      const result = await apifyFetchIndeed(url);
+
+      // Validate content before returning - if invalid, throw error to trigger fallback
+      if (!validateExtractedContent(result)) {
+        throw new Error('Apify returned invalid/empty content');
+      }
+
+      return result;
     } catch (error) {
       console.log(`   ⚠️  Apify failed: ${error.message}`);
       console.log('   🔄 Falling back to ScraperAPI...');
