@@ -414,7 +414,9 @@ async function fetchJobDescription(url) {
 
   return finalText;
   } catch (error) {
-    console.log(`⚠️  Basic fetch failed: ${error.message}`);
+    console.log(`⚠️  Basic fetch CAUGHT ERROR: ${error.message}`);
+    console.log(`⚠️  Error has response object: ${error.response ? 'YES' : 'NO'}`);
+    console.log(`⚠️  Response status: ${error.response?.status}`);
 
     // SMART BLOCKING DETECTION: Check for known-blocked sites
     const domain = new URL(url).hostname;
