@@ -43,24 +43,23 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { ApifyClient } = require('apify-client');
 
-// Initialize Apify client if enabled
+// Lazy-initialize Apify client (check at runtime, not module load time)
 let apifyClient = null;
-if (process.env.ENABLE_APIFY_SCRAPING === 'true' && process.env.APIFY_API_TOKEN) {
-  apifyClient = new ApifyClient({
-    token: process.env.APIFY_API_TOKEN
-  });
-  console.log('✅ Apify scraping enabled');
-} else {
-  console.log('ℹ️  Apify scraping disabled (using basic fetch only)');
+function getApifyClient() {
+  if (!apifyClient && process.env.ENABLE_APIFY_SCRAPING === 'true' && process.env.APIFY_API_TOKEN) {
+    apifyClient = new ApifyClient({
+      token: process.env.APIFY_API_TOKEN
+    });
+    console.log('✅ Apify scraping enabled');
+  }
+  return apifyClient;
 }
 
-// Check if ScraperAPI is enabled
-const scraperApiEnabled = process.env.ENABLE_SCRAPERAPI === 'true' && process.env.SCRAPERAPI_KEY && process.env.SCRAPERAPI_KEY !== 'YOUR_SCRAPERAPI_KEY_HERE';
-if (scraperApiEnabled) {
-  console.log('✅ ScraperAPI enabled as fallback for Indeed (92.7% success rate)');
-} else if (process.env.ENABLE_SCRAPERAPI === 'true') {
-  console.log('⚠️  ScraperAPI configured but API key not set');
-  console.log('   📖 See SCRAPERAPI_SETUP.md for setup instructions');
+// Check if ScraperAPI is enabled (at runtime)
+function isScraperApiEnabled() {
+  return process.env.ENABLE_SCRAPERAPI === 'true' &&
+         process.env.SCRAPERAPI_KEY &&
+         process.env.SCRAPERAPI_KEY !== 'YOUR_SCRAPERAPI_KEY_HERE';
 }
 
 // Special free methods are always available (no config needed)
@@ -1029,7 +1028,7 @@ async function scraperApiFetchIndeed(url) {
  */
 async function fetchIndeed(url) {
   // Try ScraperAPI first if enabled (more reliable for Indeed)
-  if (scraperApiEnabled) {
+  if (isScraperApiEnabled()) {
     try {
       return await scraperApiFetchIndeed(url);
     } catch (error) {
@@ -1039,7 +1038,7 @@ async function fetchIndeed(url) {
   }
 
   // Fall back to Apify if ScraperAPI not available or failed
-  if (apifyClient) {
+  if (getApifyClient()) {
     return await apifyFetchIndeed(url);
   }
 
@@ -1078,7 +1077,7 @@ async function apifyFetchIndeed(url) {
 
     // Create Apify execution promise
     const apifyPromise = (async () => {
-      const run = await apifyClient.actor('apify/cheerio-scraper').call({
+      const run = await getApifyClient().actor('apify/cheerio-scraper').call({
         startUrls: [{ url: indeedUrl }],
         proxyConfiguration: {
           useApifyProxy: true
@@ -1185,7 +1184,7 @@ async function apifyFetchIndeed(url) {
     });
 
       // Wait for actor to finish and get results
-      const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+      const { items } = await getApifyClient().dataset(run.defaultDatasetId).listItems();
       return items;
     })();
 
@@ -1250,7 +1249,7 @@ async function apifyFetchGeneric(url) {
 
   // Use Cheerio for standard sites (faster and cheaper)
   try {
-    const run = await apifyClient.actor('apify/cheerio-scraper').call({
+    const run = await getApifyClient().actor('apify/cheerio-scraper').call({
       startUrls: [{ url }],
       maxRequestsPerCrawl: 1,
       maxRequestRetries: 3,
@@ -1274,7 +1273,7 @@ async function apifyFetchGeneric(url) {
       }
     });
 
-    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+    const { items } = await getApifyClient().dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
       throw new Error('The title selector did not match any elements');
@@ -1312,7 +1311,7 @@ async function apifyFetchWithPlaywright(url) {
   console.log('   🎭 Using Playwright Web Scraper with JS rendering...');
 
   try {
-    const run = await apifyClient.actor('apify/web-scraper').call({
+    const run = await getApifyClient().actor('apify/web-scraper').call({
       startUrls: [{ url }],
       maxRequestsPerCrawl: 1,
       maxRequestRetries: 2,
@@ -1423,7 +1422,7 @@ async function apifyFetchWithPlaywright(url) {
       }
     });
 
-    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+    const { items } = await getApifyClient().dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
       throw new Error('Playwright scraper returned no results');
@@ -1643,7 +1642,7 @@ async function fetchJobDescriptionHybrid(url) {
   }
 
   // TIER 2: Apify (only if enabled)
-  if (process.env.ENABLE_APIFY_SCRAPING === 'true' && apifyClient) {
+  if (process.env.ENABLE_APIFY_SCRAPING === 'true' && getApifyClient()) {
     try {
       const result = await tier2_apifyFetch(url);
       if (validateExtractedContent(result)) {
