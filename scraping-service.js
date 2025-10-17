@@ -57,9 +57,17 @@ function getApifyClient() {
 
 // Check if ScraperAPI is enabled (at runtime)
 function isScraperApiEnabled() {
-  return process.env.ENABLE_SCRAPERAPI === 'true' &&
-         process.env.SCRAPERAPI_KEY &&
-         process.env.SCRAPERAPI_KEY !== 'YOUR_SCRAPERAPI_KEY_HERE';
+  const isEnabled = process.env.ENABLE_SCRAPERAPI === 'true' &&
+                    process.env.SCRAPERAPI_KEY &&
+                    process.env.SCRAPERAPI_KEY !== 'YOUR_SCRAPERAPI_KEY_HERE';
+
+  console.log('🔍 ScraperAPI Config Check:');
+  console.log(`   ENABLE_SCRAPERAPI: "${process.env.ENABLE_SCRAPERAPI}" (type: ${typeof process.env.ENABLE_SCRAPERAPI})`);
+  console.log(`   SCRAPERAPI_KEY exists: ${process.env.SCRAPERAPI_KEY ? 'YES' : 'NO'}`);
+  console.log(`   SCRAPERAPI_KEY length: ${process.env.SCRAPERAPI_KEY?.length || 0}`);
+  console.log(`   isEnabled: ${isEnabled}`);
+
+  return isEnabled;
 }
 
 // Special free methods are always available (no config needed)
