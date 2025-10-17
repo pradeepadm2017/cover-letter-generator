@@ -1584,7 +1584,7 @@ async function fetchJobDescriptionHybrid(url) {
       const result = await workopolisFetch(url);
       if (validateExtractedContent(result)) {
         console.log('✅ Workopolis SUCCESS - Using result\n');
-        return result;
+        return { content: result, method: 'workopolis' };
       }
       console.log('⚠️  Workopolis result invalid, trying other methods...');
     } catch (error) {
