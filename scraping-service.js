@@ -35,24 +35,23 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { ApifyClient } = require('apify-client');
 
-// Initialize Apify client if enabled
+// Lazy-initialize Apify client (check at runtime, not module load time)
 let apifyClient = null;
-if (process.env.ENABLE_APIFY_SCRAPING === 'true' && process.env.APIFY_API_TOKEN) {
-  apifyClient = new ApifyClient({
-    token: process.env.APIFY_API_TOKEN
-  });
-  console.log('✅ Apify scraping enabled');
-} else {
-  console.log('ℹ️  Apify scraping disabled (using basic fetch only)');
+function getApifyClient() {
+  if (!apifyClient && process.env.ENABLE_APIFY_SCRAPING === 'true' && process.env.APIFY_API_TOKEN) {
+    apifyClient = new ApifyClient({
+      token: process.env.APIFY_API_TOKEN
+    });
+    console.log('✅ Apify scraping enabled');
+  }
+  return apifyClient;
 }
 
-// Check if ScraperAPI is enabled
-const scraperApiEnabled = process.env.ENABLE_SCRAPERAPI === 'true' && process.env.SCRAPERAPI_KEY && process.env.SCRAPERAPI_KEY !== 'YOUR_SCRAPERAPI_KEY_HERE';
-if (scraperApiEnabled) {
-  console.log('✅ ScraperAPI enabled as fallback for Indeed (92.7% success rate)');
-} else if (process.env.ENABLE_SCRAPERAPI === 'true') {
-  console.log('⚠️  ScraperAPI configured but API key not set');
-  console.log('   📖 See SCRAPERAPI_SETUP.md for setup instructions');
+// Check if ScraperAPI is enabled (at runtime)
+function isScraperApiEnabled() {
+  return process.env.ENABLE_SCRAPERAPI === 'true' &&
+         process.env.SCRAPERAPI_KEY &&
+         process.env.SCRAPERAPI_KEY !== 'YOUR_SCRAPERAPI_KEY_HERE';
 }
 
 // Special free methods are always available (no config needed)
@@ -478,6 +477,62 @@ function extractGlassdoorJobFromApollo(apolloState, url) {
 }
 
 /**
+ * WORKOPOLIS SPECIAL: Extract from JSON-LD structured data (FREE)
+ * Workopolis embeds job data in JSON-LD format - ~95% success rate
+ */
+async function workopolisFetch(url) {
+  console.log('🍁 Workopolis: Extracting from JSON-LD...');
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
+      },
+      timeout: 15000
+    });
+
+    const html = response.data;
+    const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.+?)<\/script>/s);
+
+    if (!jsonLdMatch) {
+      throw new Error('JSON-LD not found in Workopolis page');
+    }
+
+    const jsonLd = JSON.parse(jsonLdMatch[1]);
+    const jobTitle = jsonLd.title || '';
+    const companyName = jsonLd.hiringOrganization?.name || '';
+    let jobDescription = jsonLd.description || '';
+
+    // Clean HTML from description
+    if (jobDescription.includes('<')) {
+      const $ = require('cheerio').load(jobDescription);
+      jobDescription = $.text().trim().replace(/\s+/g, ' ');
+    }
+
+    if (!jobTitle || !companyName || jobDescription.length < 200) {
+      throw new Error('Incomplete data extracted from Workopolis');
+    }
+
+    let finalText = '';
+    if (jobTitle) finalText += `Job Title: ${jobTitle}\n\n`;
+    if (companyName) finalText += `Company: ${companyName}\n\n`;
+    finalText += `Job Description:\n${jobDescription}`;
+
+    console.log('\n✅ Workopolis JSON-LD Success:');
+    console.log('   📋 Job Title:', jobTitle || 'NOT FOUND');
+    console.log('   🏢 Company:', companyName || 'NOT FOUND');
+    console.log('   📄 Description:', jobDescription.length, 'chars');
+
+    return finalText;
+  } catch (error) {
+    console.error(`   ❌ Workopolis extraction failed:`, error.message);
+    throw error;
+  }
+}
+
+/**
  * GOOGLE JOBS REDIRECT: Extract source URLs from Google Jobs listings
  * Google Jobs is an aggregator - redirects to original job board (LinkedIn, Indeed, etc.)
  * Priority: LinkedIn > Indeed > Other sources
@@ -895,7 +950,7 @@ async function scraperApiFetchIndeed(url) {
  */
 async function fetchIndeed(url) {
   // Try ScraperAPI first if enabled (more reliable for Indeed)
-  if (scraperApiEnabled) {
+  if (isScraperApiEnabled()) {
     try {
       return await scraperApiFetchIndeed(url);
     } catch (error) {
@@ -905,7 +960,7 @@ async function fetchIndeed(url) {
   }
 
   // Fall back to Apify if ScraperAPI not available or failed
-  if (apifyClient) {
+  if (getApifyClient()) {
     return await apifyFetchIndeed(url);
   }
 
@@ -931,8 +986,9 @@ async function apifyFetchIndeed(url) {
   console.log(`   🔗 Indeed URL: ${indeedUrl}`);
 
   try {
+    const client = getApifyClient();
     // Use Cheerio Scraper with proxies - faster and less detectable than browser automation
-    const run = await apifyClient.actor('apify/cheerio-scraper').call({
+    const run = await client.actor('apify/cheerio-scraper').call({
       startUrls: [{ url: indeedUrl }],
       proxyConfiguration: {
         useApifyProxy: true
@@ -1040,7 +1096,8 @@ async function apifyFetchIndeed(url) {
 
     // Wait for actor to finish and get results
     console.log(`   ⏳ Waiting for Apify to finish...`);
-    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+    const client = getApifyClient();
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
       throw new Error('Apify returned no results');
@@ -1088,7 +1145,8 @@ async function apifyFetchGeneric(url) {
   console.log('   📍 Using Apify generic web scraper...');
 
   try {
-    const run = await apifyClient.actor('apify/cheerio-scraper').call({
+    const client = getApifyClient();
+    const run = await client.actor('apify/cheerio-scraper').call({
       startUrls: [{ url }],
       maxRequestsPerCrawl: 1,
       maxRequestRetries: 3,
@@ -1112,7 +1170,8 @@ async function apifyFetchGeneric(url) {
       }
     });
 
-    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+    const client = getApifyClient();
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
       throw new Error('Apify returned no results');
@@ -1122,7 +1181,7 @@ async function apifyFetchGeneric(url) {
 
     let finalText = '';
     if (data.jobTitle) finalText += `Job Title: ${data.jobTitle}\n\n`;
-    if (data.companyName) finalText += `Company: ${data.companyName}\n\n`;
+    if (data.companyName) finalText += `Company: ${companyName}\n\n`;
     finalText += `Job Description:\n${data.jobDescription}`;
 
     console.log(`   ✅ Tier 2 Success (Apify Generic) - Extracted:`);
@@ -1252,6 +1311,21 @@ async function fetchJobDescriptionHybrid(url) {
     }
   }
 
+  // WORKOPOLIS SPECIAL: Try JSON-LD extraction (free & reliable for Workopolis)
+  if (url.includes('workopolis.com')) {
+    console.log('🍁 Workopolis URL detected - trying JSON-LD extraction...');
+    try {
+      const result = await workopolisFetch(url);
+      if (validateExtractedContent(result)) {
+        console.log('✅ Workopolis SUCCESS - Using result\n');
+        return result;
+      }
+      console.log('⚠️  Workopolis result invalid, trying other methods...');
+    } catch (error) {
+      console.log(`⚠️  Workopolis failed: ${error.message}, trying other methods...`);
+    }
+  }
+
   // TIER 1: Enhanced Basic Fetch (always try for other sites or as fallback)
   try {
     const result = await tier1_enhancedBasicFetch(url);
@@ -1302,7 +1376,7 @@ async function fetchJobDescriptionHybrid(url) {
   }
 
   // TIER 2: Apify (only if enabled)
-  if (process.env.ENABLE_APIFY_SCRAPING === 'true' && apifyClient) {
+  if (process.env.ENABLE_APIFY_SCRAPING === 'true' && getApifyClient()) {
     try {
       const result = await tier2_apifyFetch(url);
       if (validateExtractedContent(result)) {
