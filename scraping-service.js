@@ -1263,6 +1263,14 @@ async function fetchJobDescriptionHybrid(url) {
   } catch (error) {
     console.log(`⚠️  Tier 1 failed: ${error.message}, trying next tier...`);
 
+    // DEBUG: Log full error details to understand axios error structure
+    console.log('🔍 DEBUG - Full error object:');
+    console.log('   error.message:', error.message);
+    console.log('   error.response:', error.response ? 'EXISTS' : 'UNDEFINED');
+    console.log('   error.response?.status:', error.response?.status);
+    console.log('   error.response?.statusText:', error.response?.statusText);
+    console.log('   error.code:', error.code);
+
     // SMART BLOCKING DETECTION: Fail fast for known-blocked sites only
     // Note: HTTP 403 is NORMAL for many sites (Indeed, LinkedIn, etc.) - Apify with proxies can bypass it
     // Only block sites where Apify also fails consistently (The Ladders, etc.)
