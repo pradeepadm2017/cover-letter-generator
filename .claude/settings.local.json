@@ -30,7 +30,13 @@
       "Bash(printf \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGlxenNva3hla25raW96a3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4MjYzNjcsImV4cCI6MjA3NTQwMjM2N30.NasThZulDuYEbRZiVsIXTMt2dLWRwtveY6_GPVULv98\")",
       "WebFetch(domain:cover-letter-generator-p7hipx1bk-pradeeps-projects-bda566c3.vercel.app)",
       "Bash(supabase:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "WebSearch",
+      "Bash(python:*)",
+      "Bash(gh api:*)",
+      "Bash(git log:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(printf:*)"
     ],
     "deny": [],
     "ask": []

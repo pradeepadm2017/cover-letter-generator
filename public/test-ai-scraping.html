@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test AI Scraping - FastCoverLetters</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        #status.loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+
+        #status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        #status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        #result {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .result-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .result-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .result-card p {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .description {
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .examples {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+
+        .examples h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .examples ul {
+            list-style: none;
+        }
+
+        .examples li {
+            margin-bottom: 8px;
+        }
+
+        .examples a {
+            color: #667eea;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .examples a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI-Powered Job Scraping Test</h1>
+        <p>Test the new AI scraping system using Jina AI Reader + GPT-4. Works with LinkedIn sidebar views and ANY job site!</p>
+
+        <div class="input-group">
+            <label for="jobUrl">Job Posting URL:</label>
+            <input
+                type="url"
+                id="jobUrl"
+                placeholder="https://www.linkedin.com/jobs/..."
+                value="">
+        </div>
+
+        <button id="scrapeBtn" onclick="scrapeJob()">🔍 Extract Job Information (AI)</button>
+
+        <div id="status"></div>
+
+        <div id="result">
+            <div class="result-card">
+                <h3>📋 Job Title:</h3>
+                <p id="jobTitle"></p>
+            </div>
+
+            <div class="result-card">
+                <h3>🏢 Company:</h3>
+                <p id="jobCompany"></p>
+            </div>
+
+            <div class="result-card">
+                <h3>📄 Description:</h3>
+                <div class="description" id="jobDescription"></div>
+            </div>
+        </div>
+
+        <div class="examples">
+            <h3>💡 Example URLs to test:</h3>
+            <ul>
+                <li><a onclick="fillUrl('https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4298929277')">LinkedIn Sidebar View (Canada Life)</a></li>
+                <li><a onclick="fillUrl('https://www.linkedin.com/jobs/view/3822505771')">LinkedIn Full Page</a></li>
+                <li><a onclick="fillUrl('https://www.indeed.com/viewjob?jk=example')">Indeed Job</a></li>
+            </ul>
+            <p style="margin-top: 15px; font-size: 14px;">Note: Replace with actual job URLs from your LinkedIn feed</p>
+        </div>
+    </div>
+
+    <script>
+        function fillUrl(url) {
+            document.getElementById('jobUrl').value = url;
+        }
+
+        async function scrapeJob() {
+            const jobUrl = document.getElementById('jobUrl').value.trim();
+            const statusDiv = document.getElementById('status');
+            const resultDiv = document.getElementById('result');
+            const scrapeBtn = document.getElementById('scrapeBtn');
+
+            if (!jobUrl) {
+                statusDiv.className = 'error';
+                statusDiv.textContent = 'Please enter a job URL';
+                return;
+            }
+
+            // Show loading state
+            statusDiv.className = 'loading';
+            statusDiv.textContent = '🤖 AI is analyzing the job posting... This may take 10-15 seconds.';
+            scrapeBtn.disabled = true;
+            resultDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/scrape-ai', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ jobUrl })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Show success
+                    statusDiv.className = 'success';
+                    statusDiv.textContent = '✅ Successfully extracted job information using AI!';
+
+                    // Display results
+                    document.getElementById('jobTitle').textContent = data.job.title;
+                    document.getElementById('jobCompany').textContent = data.job.company;
+                    document.getElementById('jobDescription').textContent = data.job.description;
+
+                    resultDiv.style.display = 'block';
+                } else {
+                    throw new Error(data.message || data.error || 'Failed to extract job information');
+                }
+            } catch (error) {
+                statusDiv.className = 'error';
+                statusDiv.textContent = `❌ Error: ${error.message}`;
+                console.error('Scraping error:', error);
+            } finally {
+                scrapeBtn.disabled = false;
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('jobUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                scrapeJob();
+            }
+        });
+    </script>
+</body>
+</html>
