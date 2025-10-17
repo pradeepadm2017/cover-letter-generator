@@ -790,21 +790,9 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
               scrapingMethod = 'basic-fetch';
 
               try {
-                // Check if URL has FREE specialized scrapers (LinkedIn, Workopolis, Eluta, Glassdoor, Indeed embedded)
-                const hasFreeMethod = jobUrl.includes('linkedin.com') ||
-                                      jobUrl.includes('workopolis.com') ||
-                                      jobUrl.includes('eluta.ca') ||
-                                      jobUrl.includes('glassdoor.com') ||
-                                      jobUrl.includes('glassdoor.ca') ||
-                                      jobUrl.includes('indeed.com') ||
-                                      jobUrl.includes('google.com');
-
                 console.log(`🔍 ENV CHECK: ENABLE_APIFY_SCRAPING=${process.env.ENABLE_APIFY_SCRAPING}, ENABLE_PUPPETEER_FALLBACK=${process.env.ENABLE_PUPPETEER_FALLBACK}`);
-                console.log(`🆓 Has free scraping method available: ${hasFreeMethod}`);
-
-                // ALWAYS use hybrid scraper for sites with free methods, OR if feature flags are enabled
-                if (hasFreeMethod || process.env.ENABLE_APIFY_SCRAPING === 'true' || process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
-                  console.log('🚀 Using HYBRID scraping approach (free methods or feature-flagged)');
+                if (process.env.ENABLE_APIFY_SCRAPING === 'true' || process.env.ENABLE_PUPPETEER_FALLBACK === 'true') {
+                  console.log('🚀 Using HYBRID scraping approach (feature-flagged)');
                   const hybridResult = await scrapingService.fetchJobDescriptionHybrid(jobUrl);
 
                   // Handle new return format { content, method }
