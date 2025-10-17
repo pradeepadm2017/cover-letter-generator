@@ -714,8 +714,30 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
             }
           } catch (fetchError) {
             console.log(`⚠️ Failed to fetch job description: ${fetchError.message}`);
+
+            // SMART BLOCKING DETECTION: Check for known-blocked sites
+            try {
+              const domain = new URL(jobUrl).hostname;
+              const isHttp403 = fetchError.message.includes('403') || fetchError.response?.status === 403;
+              const isHttp999 = fetchError.message.includes('999') || fetchError.response?.status === 999;
+
+              const knownBlockedSites = ['theladders.com'];
+              const isKnownBlocked = knownBlockedSites.some(site => domain.includes(site));
+
+              if ((isHttp403 || isHttp999) && isKnownBlocked) {
+                console.log(`🚫 ${domain} is on known-blocked list (HTTP ${isHttp403 ? '403' : '999'})`);
+                fallbackReason = `${domain} appears to be blocking automated access. ` +
+                  `This is common with certain job boards after repeated requests. ` +
+                  `Please use the "Manual Paste" feature instead, or try again in 1-2 hours when the block may reset.`;
+              } else {
+                fallbackReason = fetchError.message;
+              }
+            } catch (urlError) {
+              // If URL parsing fails, use original error message
+              fallbackReason = fetchError.message;
+            }
+
             usedFallback = true;
-            fallbackReason = fetchError.message; // Use actual error message instead of generic one
 
             // Skip cover letter generation for fallback cases
             results.push({
