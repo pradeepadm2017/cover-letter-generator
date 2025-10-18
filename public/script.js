@@ -804,6 +804,11 @@ function toggleSubscriptionModal() {
     modal.classList.toggle('hidden');
 }
 
+function toggleUserGuideModal() {
+    const modal = document.getElementById('user-guide-modal');
+    modal.classList.toggle('hidden');
+}
+
 async function changePlan(tier) {
     if (tier === currentUserData.user.tier) {
         return;
@@ -1295,12 +1300,16 @@ function updateHeaderPreview() {
 window.onclick = function(event) {
     const subscriptionModal = document.getElementById('subscription-modal');
     const profileModal = document.getElementById('profile-settings-modal');
+    const userGuideModal = document.getElementById('user-guide-modal');
 
     if (event.target === subscriptionModal) {
         toggleSubscriptionModal();
     }
     if (event.target === profileModal) {
         toggleProfileSettingsModal();
+    }
+    if (event.target === userGuideModal) {
+        toggleUserGuideModal();
     }
 }
 

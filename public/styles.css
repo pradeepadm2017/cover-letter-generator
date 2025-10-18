@@ -633,6 +633,24 @@ button {
     padding: 15px 20px;
 }
 
+/* User Guide Modal Specific Styles */
+.user-guide-modal-content {
+    max-width: 900px;
+    max-height: 90vh;
+}
+
+.user-guide-body {
+    padding: 0;
+    overflow: hidden;
+}
+
+.user-guide-body iframe {
+    border: none;
+    width: 100%;
+    height: 70vh;
+    background: white;
+}
+
 .subscription-info {
     background-color: #f9fafb;
     padding: 20px;
