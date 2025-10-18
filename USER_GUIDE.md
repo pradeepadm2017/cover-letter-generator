@@ -9,8 +9,8 @@ Fast Cover Letters is an AI-powered tool that automatically generates profession
 ## Table of Contents
 
 1. [Getting Started](#getting-started)
-2. [Using the App](#using-the-app)
-3. [Profile Settings](#profile-settings)
+2. [Profile Settings](#profile-settings)
+3. [Using the App](#using-the-app)
 4. [Subscription Plans](#subscription-plans)
 5. [Tips for Best Results](#tips-for-best-results)
 6. [Troubleshooting](#troubleshooting)
@@ -26,85 +26,6 @@ Fast Cover Letters is an AI-powered tool that automatically generates profession
 3. You'll be automatically logged in and redirected to the main application
 
 **Note:** Your account email is used for authentication only. You can customize the email displayed in your cover letters in Profile Settings.
-
----
-
-## Using the App
-
-### Step 1: Upload Your Resume
-
-You have two options to provide your resume:
-
-#### Option A: Upload a File
-1. Click **"Choose File"** or **"Upload Resume"**
-2. Select your resume file (supported formats: PDF, DOCX, TXT)
-3. Wait for the upload to complete (you'll see a success message)
-
-#### Option B: Paste Resume Text
-1. Click **"Paste Resume"**
-2. Copy and paste your resume text into the text area
-3. Click **"Save Resume"**
-
-**Important:** Your resume is saved for the current session. If you refresh the page or close your browser, you'll need to upload it again.
-
----
-
-### Step 2: Add Job Details
-
-You have **two modes** for providing job information:
-
-#### **Mode 1: Use Job URL (Recommended)**
-
-This mode automatically extracts job details from job posting URLs.
-
-1. Make sure **"Use Job URL"** tab is selected (blue highlight)
-2. Click **"+ Add Job URL"** to create a new job entry
-3. Paste the full job posting URL (e.g., from Indeed, LinkedIn, Glassdoor, etc.)
-4. Add multiple URLs if you want to generate cover letters for several jobs at once
-5. Click **"Generate Cover Letters"**
-
-**Supported Job Boards:**
-- Indeed
-- LinkedIn
-- Glassdoor
-- Workopolis
-- Eluta
-- ZipRecruiter
-- Monster
-- CareerBuilder
-- And many more!
-
-**Note:** Some websites may block automated access. If a URL fails, try using the Manual Paste mode instead.
-
-#### **Mode 2: Paste Job Description**
-
-Use this mode if you want to manually enter job details or if the URL scraping doesn't work.
-
-1. Click the **"Paste Job Description"** tab
-2. Fill in the job details:
-   - **Job Title** (required)
-   - **Company Name** (required)
-   - **Job Description** (required) - Copy and paste the full job posting text
-
-3. Click **"+ Add Another Job"** to add more jobs
-4. Click **"Generate Cover Letters"**
-
-**Tip:** You can leave the Job Title and Company fields blank, and the AI will try to extract them from the description. However, filling them in manually gives better results.
-
----
-
-### Step 3: Generate Cover Letters
-
-1. After adding your resume and job details, click **"Generate Cover Letters"**
-2. Wait for the generation process to complete (typically 10-20 seconds per job)
-3. Cover letters will automatically download as Word documents (.docx)
-
-**What You'll Get:**
-- Professional cover letter with a formatted header
-- 4 paragraphs tailored to the specific job
-- 300-350 words in length
-- Personalized content matching your resume to the job requirements
-- Ready to submit or further customize
 
 ---
 
@@ -175,11 +96,90 @@ The preview section shows exactly how your header will appear in generated cover
 
 ---
 
+## Using the App
+
+### Step 1: Upload Your Resume
+
+You have two options to provide your resume:
+
+#### Option A: Upload a File
+1. Click **"Choose File"** or **"Upload Resume"**
+2. Select your resume file (supported formats: PDF, DOCX, TXT)
+3. Wait for the upload to complete (you'll see a success message)
+
+#### Option B: Paste Resume Text
+1. Click **"Paste Resume"**
+2. Copy and paste your resume text into the text area
+3. Click **"Save Resume"**
+
+**Important:** Your resume is saved for the current session. If you refresh the page or close your browser, you'll need to upload it again.
+
+---
+
+### Step 2: Add Job Details
+
+You have **two modes** for providing job information:
+
+#### **Mode 1: Paste Job Description (Recommended)**
+
+This mode allows you to manually enter the complete job posting information.
+
+1. Click the **"Paste Job Description"** tab (blue highlight)
+2. Fill in the job details:
+   - **Job Title** (Optional) - The AI can extract this from the description if left blank
+   - **Company Name** (Optional) - The AI can extract this from the description if left blank
+   - **Job Description** (Required) - Open the job posting in a new tab, press **CTRL+A** to select the entire page, then **CTRL+C** to copy, and **CTRL+V** to paste the full job posting text
+
+3. Click **"+ Add Another Job"** to add more jobs
+4. Click **"Generate Cover Letters"**
+
+**Tip:** While the AI can extract job title and company from the description, filling them in manually often gives better results.
+
+#### **Mode 2: Use Job URL**
+
+This mode automatically extracts job details from job posting URLs.
+
+1. Click the **"Use Job URL"** tab
+2. Click **"+ Add Job URL"** to create a new job entry
+3. Paste the full job posting URL (e.g., from Indeed, LinkedIn, Glassdoor, etc.)
+4. Add multiple URLs if you want to generate cover letters for several jobs at once
+5. Click **"Generate Cover Letters"**
+
+**Supported Job Boards:**
+- Indeed
+- LinkedIn
+- Glassdoor
+- Workopolis
+- Eluta
+- ZipRecruiter
+- Monster
+- CareerBuilder
+- And many more!
+
+**Note:** Some websites may block automated access. If a URL fails, try using the Paste Job Description mode instead.
+
+---
+
+### Step 3: Generate Cover Letters
+
+1. After adding your resume and job details, click **"Generate Cover Letters"**
+2. Wait for the generation process to complete (typically 10-20 seconds per job)
+3. Cover letters will automatically download as Word documents (.docx)
+
+**What You'll Get:**
+- Professional cover letter with a formatted header
+- 4 paragraphs tailored to the specific job
+- 300-350 words in length
+- Personalized content matching your resume to the job requirements
+- Ready to submit or further customize
+
+---
+
 ## Subscription Plans
 
 ### Free Plan
 
-- **5 cover letters per month**
+- **3 cover letters per month**
 - All features included
 - Perfect for occasional job applications
 
@@ -215,7 +215,7 @@ Have a promo code for extra free cover letters?
 
 1. **Use complete job postings** - The more information provided, the better the results
 2. **Don't edit the description** - Include requirements, responsibilities, and company info
-3. **Use the URL method when possible** - Automated extraction is faster and more accurate
+3. **Use the Paste Job Description method for best results** - Copy the entire page (CTRL+A, CTRL+C, CTRL+V) to capture all job details accurately
 
 ### Profile Settings Tips
 
