@@ -1750,15 +1750,36 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
             if (line1) {
               const headerFontSize = (userProfile?.header_font_size || 16) * 2; // Convert points to half-points
               const headerFont = userProfile?.header_font || 'Calibri';
+              const credentialsFontSize = headerFontSize - 2; // One point smaller (2 half-points)
 
-              docParagraphs.push(new Paragraph({
-                children: [new TextRun({
-                  text: line1,
+              // Split name and credentials
+              const parts = line1.split(', ');
+              const name = parts[0];
+              const credentials = parts.slice(1).join(', ');
+
+              const textRuns = [
+                new TextRun({
+                  text: name,
                   size: headerFontSize,
                   font: headerFont,
                   color: hexColor,
                   bold: true
-                })],
+                })
+              ];
+
+              // Add credentials if present, with smaller font size
+              if (credentials) {
+                textRuns.push(new TextRun({
+                  text: ', ' + credentials,
+                  size: credentialsFontSize,
+                  font: headerFont,
+                  color: hexColor,
+                  bold: true
+                }));
+              }
+
+              docParagraphs.push(new Paragraph({
+                children: textRuns,
                 alignment: alignment === 'center' ? 'center' : 'left',
                 spacing: {
                   after: 80, // Reduced spacing after name
@@ -1833,12 +1854,30 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
               }));
 
               // Add name paragraph separately
-              docParagraphs.push(new Paragraph({
-                children: [new TextRun({
-                  text: candidateName,
+              // Split name and credentials for signature
+              const nameParts = candidateName.split(', ');
+              const signatureName = nameParts[0];
+              const signatureCredentials = nameParts.slice(1).join(', ');
+              const credentialsFontSize = bodyFontSize - 2; // One point smaller
+
+              const signatureRuns = [
+                new TextRun({
+                  text: signatureName,
                   size: bodyFontSize,
                   font: bodyFont,
-                })],
+                })
+              ];
+
+              if (signatureCredentials) {
+                signatureRuns.push(new TextRun({
+                  text: ', ' + signatureCredentials,
+                  size: credentialsFontSize,
+                  font: bodyFont,
+                }));
+              }
+
+              docParagraphs.push(new Paragraph({
+                children: signatureRuns,
                 spacing: {
                   after: 300, // Increased spacing
                   line: 276, // 1.15 line spacing
@@ -1858,12 +1897,30 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
                 }
               }));
 
-              docParagraphs.push(new Paragraph({
-                children: [new TextRun({
-                  text: candidateName,
+              // Split name and credentials for signature
+              const nameParts = candidateName.split(', ');
+              const signatureName = nameParts[0];
+              const signatureCredentials = nameParts.slice(1).join(', ');
+              const credentialsFontSize = bodyFontSize - 2; // One point smaller
+
+              const signatureRuns = [
+                new TextRun({
+                  text: signatureName,
                   size: bodyFontSize,
                   font: bodyFont,
-                })],
+                })
+              ];
+
+              if (signatureCredentials) {
+                signatureRuns.push(new TextRun({
+                  text: ', ' + signatureCredentials,
+                  size: credentialsFontSize,
+                  font: bodyFont,
+                }));
+              }
+
+              docParagraphs.push(new Paragraph({
+                children: signatureRuns,
                 spacing: {
                   after: 300,
                   line: 276,
@@ -1886,12 +1943,30 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
                   }
                 }));
 
+                // Split name and credentials for signature
+                const nameParts = candidateName.split(', ');
+                const signatureName = nameParts[0];
+                const signatureCredentials = nameParts.slice(1).join(', ');
+                const credentialsFontSize = bodyFontSize - 2; // One point smaller
+
+                const signatureRuns = [
+                  new TextRun({
+                    text: signatureName,
+                    size: bodyFontSize,
+                    font: bodyFont,
+                  })
+                ];
+
+                if (signatureCredentials) {
+                  signatureRuns.push(new TextRun({
+                    text: ', ' + signatureCredentials,
+                    size: credentialsFontSize,
+                    font: bodyFont,
+                  }));
+                }
+
                 docParagraphs.push(new Paragraph({
-                  children: [new TextRun({
-                    text: candidateName,
-                    size: 24,
-                    font: 'Calibri',
-                  })],
+                  children: signatureRuns,
                   spacing: {
                     after: 300,
                     line: 276,
