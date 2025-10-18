@@ -134,9 +134,10 @@
 
     <script>
         // Configure marked to generate heading IDs
-        marked.setOptions({
+        marked.use({
             headerIds: true,
-            mangle: false
+            mangle: false,
+            gfm: true
         });
 
         // Fetch the markdown content and convert it to HTML
@@ -146,6 +147,23 @@
                 // Convert markdown to HTML with heading IDs
                 const html = marked.parse(markdown);
                 document.getElementById('content').innerHTML = html;
+
+                console.log('HTML generated, checking for headings...');
+
+                // Manually add IDs to headings if they don't have them
+                document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(heading => {
+                    if (!heading.id) {
+                        // Generate ID from heading text
+                        const id = heading.textContent
+                            .toLowerCase()
+                            .trim()
+                            .replace(/[^\w\s-]/g, '') // Remove special characters
+                            .replace(/\s+/g, '-')      // Replace spaces with hyphens
+                            .replace(/^-+|-+$/g, '');  // Remove leading/trailing hyphens
+                        heading.id = id;
+                        console.log('Added ID:', id, 'to heading:', heading.textContent);
+                    }
+                });
 
                 // Enable smooth scrolling for anchor links
                 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
