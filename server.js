@@ -952,11 +952,17 @@ function generateHeaderForCoverLetter(profile, userEmail) {
 app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) => {
   console.log('🚀 API REQUEST RECEIVED: /api/generate-cover-letters');
   console.log('📝 Request body keys:', Object.keys(req.body));
+  console.log('👤 User ID:', req.user?.id);
+  console.log('📧 User email:', req.user?.email);
 
   try {
     const { resume, jobUrls } = req.body;
 
+    console.log('📋 Resume received:', !!resume, resume ? `(${resume.length} characters)` : '');
+    console.log('📋 Job URLs received:', Array.isArray(jobUrls), jobUrls ? `(${jobUrls.length} jobs)` : '');
+
     if (!resume || !jobUrls || !Array.isArray(jobUrls) || jobUrls.length === 0) {
+      console.error('❌ Validation failed - Resume:', !!resume, 'JobUrls:', Array.isArray(jobUrls), jobUrls?.length);
       return res.status(400).json({ error: 'Resume and job URLs are required' });
     }
 
@@ -1374,20 +1380,30 @@ ${jobDescription}
 Create a highly targeted cover letter that could only work for this specific job. Make it compelling and results-focused. Remember: EXACTLY 4 PARAGRAPHS, 300-350 WORDS TOTAL, 3-4 SENTENCES PER PARAGRAPH. Request: ${requestId}`;
 
         console.log('🔍 Sending prompt to Claude Haiku 3.5:', prompt.substring(0, 300) + '...');
+        console.log('📋 Resume length:', resume.length, 'characters');
+        console.log('📋 Job description length:', jobDescription.length, 'characters');
 
         // Use Claude for cover letter generation
-        const completion = await anthropic.messages.create({
-          model: "claude-3-5-haiku-20241022",
-          max_tokens: 2000,
-          temperature: 0.3,
-          system: "You are a professional cover letter writer. You must follow formatting instructions exactly. Never include contact information, asterisks, or content outside the specified format.",
-          messages: [
-            {
-              role: "user",
-              content: prompt
-            }
-          ]
-        });
+        let completion;
+        try {
+          completion = await anthropic.messages.create({
+            model: "claude-3-5-haiku-20241022",
+            max_tokens: 2000,
+            temperature: 0.3,
+            system: "You are a professional cover letter writer. You must follow formatting instructions exactly. Never include contact information, asterisks, or content outside the specified format.",
+            messages: [
+              {
+                role: "user",
+                content: prompt
+              }
+            ]
+          });
+        } catch (apiError) {
+          console.error('❌ Anthropic API call failed:', apiError.message);
+          console.error('❌ API Error details:', apiError.response?.data || apiError);
+          console.error('❌ API key configured:', !!process.env.ANTHROPIC_API_KEY);
+          throw new Error(`Cover letter generation failed: ${apiError.message}`);
+        }
 
         // Capture token usage from main generation (Claude uses input_tokens and output_tokens)
         const mainTokenUsage = completion.usage || { input_tokens: 0, output_tokens: 0 };
@@ -2034,8 +2050,10 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
 
     res.json({ results });
   } catch (error) {
-    console.error('Error generating cover letters:', error);
-    res.status(500).json({ error: 'Failed to generate cover letters' });
+    console.error('❌ CRITICAL ERROR generating cover letters:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', error);
+    res.status(500).json({ error: `Failed to generate cover letters: ${error.message}` });
   }
 });
 
