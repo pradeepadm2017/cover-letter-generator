@@ -571,6 +571,7 @@ async function generateAllCoverLetters() {
         console.log('📡 FRONTEND: Received response:', response.status);
 
         const data = await response.json();
+        console.log('📦 FRONTEND: Response data:', data);
 
         if (!response.ok) {
             // Special handling for usage limit errors
@@ -631,6 +632,8 @@ async function generateAllCoverLetters() {
 
         // Display results and update URL statuses
         data.results.forEach((result, index) => {
+            console.log(`📋 FRONTEND: Processing result ${index + 1}:`, result);
+
             if (result.success) {
                 // Update URL status to success
                 updateUrlStatus(index, 'success', 'Cover letter generated successfully');
