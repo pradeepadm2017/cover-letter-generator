@@ -453,12 +453,6 @@ async function generateManualCoverLetters() {
     }
 }
 
-// Toggle User Guide Modal
-function toggleUserGuideModal() {
-    const modal = document.getElementById('user-guide-modal');
-    modal.classList.toggle('hidden');
-}
-
 // Initialize page
 document.addEventListener('DOMContentLoaded', async function() {
     await initAuth();
