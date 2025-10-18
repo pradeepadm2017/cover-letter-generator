@@ -53,7 +53,11 @@ async function verifySupabaseSession(req, res, next) {
     console.log('User authenticated:', user.id, user.email);
     // Get user profile from database
     const profile = await userOps.findById(user.id);
-    req.user = { ...user, ...profile };
+
+    // Merge profile but NEVER overwrite the auth email
+    // The email in profiles is for cover letter display only
+    const { email: profileEmail, ...profileWithoutEmail } = profile || {};
+    req.user = { ...user, ...profileWithoutEmail };
     next();
   } catch (error) {
     console.error('Error verifying session:', error);
