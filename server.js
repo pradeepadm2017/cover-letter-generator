@@ -757,10 +757,10 @@ async function extractJobTitleAndCompany(jobDescription) {
 
     console.log(`✅ First attempt result - Job Title: "${jobTitle}", Company: "${companyName}"`);
 
-    // Second attempt: If either is null, retry with full job description
+    // Second attempt: If either is null, retry with first 6000 characters
     if (!jobTitle || !companyName) {
-      console.log('⚠️ Missing data from first attempt. Retrying with FULL job description...');
-      console.log(`📏 Full job description length: ${jobDescription.length} characters`);
+      console.log('⚠️ Missing data from first attempt. Retrying with first 6000 characters...');
+      console.log(`📏 Job description length: ${jobDescription.length} characters`);
 
       try {
         const retryCompletion = await openai.chat.completions.create({
@@ -772,7 +772,7 @@ async function extractJobTitleAndCompany(jobDescription) {
             },
             {
               role: "user",
-              content: `Extract the job title and company name from this job posting:\n\n${jobDescription}`
+              content: `Extract the job title and company name from this job posting:\n\n${jobDescription.substring(0, 6000)}`
             }
           ],
           max_tokens: 150,
