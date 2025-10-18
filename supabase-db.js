@@ -187,6 +187,7 @@ const userOps = {
       .from('profiles')
       .upsert({
         id: userId, // Must include id for upsert
+        email: profileData.email || null,
         full_name: profileData.full_name || null,
         credentials: profileData.credentials || null,
         city: profileData.city || null,
@@ -202,7 +203,7 @@ const userOps = {
       }, {
         onConflict: 'id' // Specify which column is the unique constraint
       })
-      .select('full_name, credentials, city, phone, linkedin_url, header_template, header_color, header_font, header_font_size, body_font, body_font_size, page_border')
+      .select('email, full_name, credentials, city, phone, linkedin_url, header_template, header_color, header_font, header_font_size, body_font, body_font_size, page_border')
       .single();
 
     if (error) {

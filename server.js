@@ -427,7 +427,7 @@ app.get('/api/user/profile', ensureAuthenticated, async (req, res) => {
 app.post('/api/user/profile', ensureAuthenticated, async (req, res) => {
   try {
     const {
-      full_name, credentials, city, phone, linkedin_url,
+      email, full_name, credentials, city, phone, linkedin_url,
       header_template, header_color,
       header_font, header_font_size,
       body_font, body_font_size,
@@ -467,6 +467,7 @@ app.post('/api/user/profile', ensureAuthenticated, async (req, res) => {
     }
 
     const profileData = {
+      email: email || req.user.email || '',
       full_name: full_name || '',
       credentials: credentials || '',
       city: city || '',

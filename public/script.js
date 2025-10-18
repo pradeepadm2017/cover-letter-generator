@@ -1125,6 +1125,7 @@ async function saveProfileSettings() {
 
         // Get form values
         const profileData = {
+            email: document.getElementById('profile-email').value.trim(),
             full_name: document.getElementById('profile-fullname').value.trim(),
             credentials: document.getElementById('profile-credentials').value.trim(),
             city: document.getElementById('profile-city').value.trim(),
@@ -1192,6 +1193,7 @@ let initialProfileSettings = null;
 
 function getCurrentProfileSettings() {
     const settings = {
+        email: document.getElementById('profile-email')?.value.trim() || '',
         full_name: document.getElementById('profile-fullname')?.value.trim() || '',
         credentials: document.getElementById('profile-credentials')?.value.trim() || '',
         city: document.getElementById('profile-city')?.value.trim() || '',
