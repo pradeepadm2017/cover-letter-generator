@@ -718,7 +718,11 @@ async function fetchJobDescription(url) {
 async function extractJobTitleAndCompany(jobDescription) {
   console.log('🤖 Using GPT-4o-mini to extract job title and company name...');
 
+  let totalTokenUsage = { input: 0, output: 0, total: 0 };
+
   try {
+    // First attempt: Use first 2000 characters
+    console.log('📝 First attempt: Using first 2000 characters...');
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -740,31 +744,84 @@ async function extractJobTitleAndCompany(jobDescription) {
 
     // Capture token usage
     const tokenUsage = completion.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-    console.log(`📊 Token usage - Input: ${tokenUsage.prompt_tokens}, Output: ${tokenUsage.completion_tokens}, Total: ${tokenUsage.total_tokens}`);
+    totalTokenUsage.input += tokenUsage.prompt_tokens;
+    totalTokenUsage.output += tokenUsage.completion_tokens;
+    totalTokenUsage.total += tokenUsage.total_tokens;
+    console.log(`📊 Token usage (attempt 1) - Input: ${tokenUsage.prompt_tokens}, Output: ${tokenUsage.completion_tokens}, Total: ${tokenUsage.total_tokens}`);
 
     // Parse JSON response
     const extracted = JSON.parse(responseText);
 
-    const jobTitle = extracted.jobTitle || null;
-    const companyName = extracted.companyName || null;
+    let jobTitle = extracted.jobTitle || null;
+    let companyName = extracted.companyName || null;
 
-    console.log(`✅ Extracted - Job Title: "${jobTitle}", Company: "${companyName}"`);
+    console.log(`✅ First attempt result - Job Title: "${jobTitle}", Company: "${companyName}"`);
+
+    // Second attempt: If either is null, retry with full job description
+    if (!jobTitle || !companyName) {
+      console.log('⚠️ Missing data from first attempt. Retrying with FULL job description...');
+      console.log(`📏 Full job description length: ${jobDescription.length} characters`);
+
+      try {
+        const retryCompletion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a job posting analyzer. Extract the job title and company name from job descriptions. Respond ONLY with valid JSON in this exact format: {\"jobTitle\": \"extracted title\", \"companyName\": \"extracted company\"}. If you cannot find either field, use null for that field."
+            },
+            {
+              role: "user",
+              content: `Extract the job title and company name from this job posting:\n\n${jobDescription}`
+            }
+          ],
+          max_tokens: 150,
+          temperature: 0.1
+        });
+
+        const retryResponseText = retryCompletion.choices[0].message.content.trim();
+        console.log('🤖 GPT-4o-mini retry response:', retryResponseText);
+
+        // Capture retry token usage
+        const retryTokenUsage = retryCompletion.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+        totalTokenUsage.input += retryTokenUsage.prompt_tokens;
+        totalTokenUsage.output += retryTokenUsage.completion_tokens;
+        totalTokenUsage.total += retryTokenUsage.total_tokens;
+        console.log(`📊 Token usage (attempt 2) - Input: ${retryTokenUsage.prompt_tokens}, Output: ${retryTokenUsage.completion_tokens}, Total: ${retryTokenUsage.total_tokens}`);
+
+        // Parse retry JSON response
+        const retryExtracted = JSON.parse(retryResponseText);
+
+        // Use retry results if they're not null, otherwise keep first attempt results
+        if (!jobTitle && retryExtracted.jobTitle) {
+          jobTitle = retryExtracted.jobTitle;
+          console.log(`✅ Found job title on retry: "${jobTitle}"`);
+        }
+        if (!companyName && retryExtracted.companyName) {
+          companyName = retryExtracted.companyName;
+          console.log(`✅ Found company name on retry: "${companyName}"`);
+        }
+
+      } catch (retryError) {
+        console.error('❌ Retry extraction failed:', retryError.message);
+        // Continue with first attempt results
+      }
+    }
+
+    console.log(`📊 Total token usage - Input: ${totalTokenUsage.input}, Output: ${totalTokenUsage.output}, Total: ${totalTokenUsage.total}`);
+    console.log(`✅ Final result - Job Title: "${jobTitle}", Company: "${companyName}"`);
 
     return {
       jobTitle,
       companyName,
-      tokenUsage: {
-        input: tokenUsage.prompt_tokens,
-        output: tokenUsage.completion_tokens,
-        total: tokenUsage.total_tokens
-      }
+      tokenUsage: totalTokenUsage
     };
   } catch (error) {
     console.error('❌ GPT-4o-mini extraction failed:', error.message);
     return {
       jobTitle: null,
       companyName: null,
-      tokenUsage: { input: 0, output: 0, total: 0 }
+      tokenUsage: totalTokenUsage
     };
   }
 }
