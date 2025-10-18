@@ -1750,7 +1750,7 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
             if (line1) {
               const headerFontSize = (userProfile?.header_font_size || 16) * 2; // Convert points to half-points
               const headerFont = userProfile?.header_font || 'Calibri';
-              const credentialsFontSize = headerFontSize - 2; // One point smaller (2 half-points)
+              const credentialsFontSize = headerFontSize - 4; // Two points smaller (4 half-points)
 
               // Split name and credentials
               const parts = line1.split(', ');
@@ -1858,7 +1858,7 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
               const nameParts = candidateName.split(', ');
               const signatureName = nameParts[0];
               const signatureCredentials = nameParts.slice(1).join(', ');
-              const credentialsFontSize = bodyFontSize - 2; // One point smaller
+              const credentialsFontSize = bodyFontSize - 4; // Two points smaller (4 half-points)
 
               const signatureRuns = [
                 new TextRun({
@@ -1901,7 +1901,7 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
               const nameParts = candidateName.split(', ');
               const signatureName = nameParts[0];
               const signatureCredentials = nameParts.slice(1).join(', ');
-              const credentialsFontSize = bodyFontSize - 2; // One point smaller
+              const credentialsFontSize = bodyFontSize - 4; // Two points smaller (4 half-points)
 
               const signatureRuns = [
                 new TextRun({
@@ -1947,7 +1947,7 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
                 const nameParts = candidateName.split(', ');
                 const signatureName = nameParts[0];
                 const signatureCredentials = nameParts.slice(1).join(', ');
-                const credentialsFontSize = bodyFontSize - 2; // One point smaller
+                const credentialsFontSize = bodyFontSize - 4; // Two points smaller (4 half-points)
 
                 const signatureRuns = [
                   new TextRun({
