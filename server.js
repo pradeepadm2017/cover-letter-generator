@@ -481,15 +481,18 @@ app.post('/api/user/profile', ensureAuthenticated, async (req, res) => {
       page_border: page_border || 'narrow'
     };
 
+    console.log('💾 Saving profile data:', profileData);
     const updatedProfile = await userOps.updateProfile(req.user.id, profileData);
+    console.log('✅ Profile saved successfully:', updatedProfile);
 
     res.json({
       success: true,
       profile: updatedProfile
     });
   } catch (error) {
-    console.error('Error updating user profile:', error);
-    res.status(500).json({ error: 'Failed to update profile settings' });
+    console.error('❌ Error updating user profile:', error);
+    console.error('Error details:', error.message, error.code);
+    res.status(500).json({ error: 'Failed to update profile settings: ' + error.message });
   }
 });
 
