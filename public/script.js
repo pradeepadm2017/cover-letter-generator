@@ -1037,7 +1037,7 @@ async function loadProfileSettings() {
             document.getElementById('profile-fullname').value = profile.full_name || '';
             document.getElementById('profile-credentials').value = profile.credentials || '';
             document.getElementById('profile-city').value = profile.city || '';
-            document.getElementById('profile-email').value = currentUser?.email || '';
+            document.getElementById('profile-email').value = profile.email || currentUser?.email || '';
             document.getElementById('profile-phone').value = profile.phone || '';
             document.getElementById('profile-linkedin').value = profile.linkedin_url || '';
 
