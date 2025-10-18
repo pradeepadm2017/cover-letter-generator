@@ -104,7 +104,7 @@ You have two options to provide your resume:
 
 #### Option A: Upload a File
 1. Click **"Choose File"** or **"Upload Resume"**
-2. Select your resume file (supported formats: PDF, DOCX, TXT)
+2. Select your resume file (supported formats: DOC, DOCX, TXT)
 3. Wait for the upload to complete (you'll see a success message)
 
 #### Option B: Paste Resume Text
@@ -229,7 +229,6 @@ Have a promo code for extra free cover letters?
 1. **Review before sending** - Always review generated cover letters for accuracy
 2. **Customize if needed** - Feel free to add personal touches or specific examples
 3. **Generate multiple versions** - Try generating twice for the same job to see different approaches
-4. **Save your favorites** - Keep successful cover letters as templates
 
 ---
 
@@ -287,12 +286,12 @@ You've used all your free cover letters for this month.
 ### Resume not uploading
 
 **Possible causes:**
-1. **Unsupported format** - File is not PDF, DOCX, or TXT
+1. **Unsupported format** - File is not DOC, DOCX, or TXT
 2. **File too large** - File exceeds 10MB limit
 3. **Corrupted file** - File may be damaged
 
 **Solution:**
-- Use PDF, DOCX, or TXT format only
+- Use DOC, DOCX, or TXT format only. PDF is not supported
 - Reduce file size if needed
 - Try pasting the text instead of uploading
 
@@ -305,7 +304,7 @@ If you're experiencing issues not covered in this guide:
 1. **Refresh the page** - Sometimes a simple refresh solves the problem
 2. **Check your browser** - Use the latest version of Chrome, Firefox, Safari, or Edge
 3. **Clear browser cache** - Clear cookies and cache, then try again
-4. **Contact support** - Report issues at [GitHub Issues](https://github.com/pradeepadm2017/cover-letter-generator/issues)
+4. **Contact support** - Report issues at customersupport@fastcoverletters.com
 
 ---
 
