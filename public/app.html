@@ -21,6 +21,7 @@
                         <span id="user-tier" class="tier-badge">Free</span>
                     </div>
                     <div class="user-actions">
+                        <button type="button" class="btn-secondary" onclick="toggleProfileSettingsModal()">Profile Settings</button>
                         <button type="button" class="btn-secondary" onclick="toggleSubscriptionModal()">Manage Subscription</button>
                         <button type="button" class="btn-logout" onclick="logout()">Logout</button>
                     </div>
@@ -72,24 +73,24 @@
                 <h2>How would you like to add jobs?</h2>
                 <div class="input-mode-toggle">
                     <label class="mode-option">
-                        <input type="radio" name="input-mode" value="url" checked onchange="switchInputMode('url')">
+                        <input type="radio" name="input-mode" value="manual" checked onchange="switchInputMode('manual')">
                         <span class="mode-label">
-                            <strong>Use Job URLs</strong>
-                            <small>Automatically extract job details from posting links</small>
+                            <strong>Paste Job Descriptions <span class="recommended-badge">Recommended</span></strong>
+                            <small>Manually enter job title, company, and description</small>
                         </span>
                     </label>
                     <label class="mode-option">
-                        <input type="radio" name="input-mode" value="manual" onchange="switchInputMode('manual')">
+                        <input type="radio" name="input-mode" value="url" onchange="switchInputMode('url')">
                         <span class="mode-label">
-                            <strong>Paste Job Descriptions</strong>
-                            <small>Manually enter job title, company, and description</small>
+                            <strong>Use Job URLs</strong>
+                            <small>Automatically extract job details from posting links</small>
                         </span>
                     </label>
                 </div>
             </div>
 
             <!-- URL Mode -->
-            <div id="url-mode-section" class="form-section">
+            <div id="url-mode-section" class="form-section hidden">
                 <h2>Job URLs</h2>
                 <div id="job-urls-container">
                     <div class="job-url-input" data-index="0">
@@ -112,10 +113,10 @@
             </div>
 
             <!-- Manual Mode -->
-            <div id="manual-mode-section" class="form-section hidden">
+            <div id="manual-mode-section" class="form-section">
                 <h2>Job Descriptions</h2>
                 <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
-                    For each job, enter the title, company, and paste the full job description.
+                    Paste the job description below. Title and company are optional - AI will extract them if not provided.
                 </p>
                 <div id="manual-jobs-container">
                     <div class="manual-job-card" data-index="0">
@@ -125,13 +126,13 @@
                         </div>
                         <input
                             type="text"
-                            placeholder="Job Title (e.g., Senior Software Engineer)"
+                            placeholder="Job Title (optional - AI will extract if empty)"
                             class="manual-job-title"
                             style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
                         >
                         <input
                             type="text"
-                            placeholder="Company Name (e.g., Microsoft)"
+                            placeholder="Company Name (optional - AI will extract if empty)"
                             class="manual-job-company"
                             style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
                         >
@@ -164,7 +165,6 @@ Requirements:
                     type="button"
                     id="generate-all-btn"
                     onclick="generateAllCoverLetters()"
-                    disabled
                 >
                     Generate Cover Letters
                 </button>
@@ -180,6 +180,278 @@ Requirements:
         </div>
 
         <div id="error-message" class="error-message hidden"></div>
+    </div>
+
+    <!-- Profile Settings Modal -->
+    <div id="profile-settings-modal" class="modal hidden">
+        <div class="modal-content profile-settings-content">
+            <div class="modal-header">
+                <h2>Profile Settings - Cover Letter Header</h2>
+                <button type="button" class="modal-close" onclick="toggleProfileSettingsModal()">&times;</button>
+            </div>
+            <div class="modal-body profile-settings-body">
+                <p class="settings-intro">
+                    Customize your cover letter header. All fields are optional - only filled fields will appear in your headers.
+                </p>
+
+                <!-- Profile Information Form -->
+                <div class="settings-section">
+                    <h3>Your Information</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="profile-fullname">Full Name</label>
+                            <input
+                                type="text"
+                                id="profile-fullname"
+                                placeholder="e.g., John Smith"
+                                class="profile-input"
+                                required
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-credentials">Credentials <span class="optional-label">(optional)</span></label>
+                            <input
+                                type="text"
+                                id="profile-credentials"
+                                placeholder="e.g., MBA, PMP, CFA"
+                                class="profile-input"
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-city">City <span class="optional-label">(optional)</span></label>
+                            <input
+                                type="text"
+                                id="profile-city"
+                                placeholder="e.g., Toronto, ON"
+                                class="profile-input"
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-email">Email</label>
+                            <input
+                                type="email"
+                                id="profile-email"
+                                placeholder="your.email@example.com"
+                                class="profile-input"
+                                readonly
+                                required
+                            >
+                            <small class="field-note">Using your account email</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-phone">Phone Number</label>
+                            <input
+                                type="tel"
+                                id="profile-phone"
+                                placeholder="e.g., (416) 555-0123"
+                                class="profile-input"
+                                required
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-linkedin">LinkedIn URL <span class="optional-label">(optional)</span></label>
+                            <input
+                                type="url"
+                                id="profile-linkedin"
+                                placeholder="e.g., linkedin.com/in/yourname"
+                                class="profile-input"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Header Template Selection -->
+                <div class="settings-section">
+                    <h3>Header Template</h3>
+                    <div class="template-options">
+                        <label class="template-option">
+                            <input type="radio" name="header-template" value="none">
+                            <div class="template-card">
+                                <div class="template-label">No Header</div>
+                                <div class="template-sample">
+                                    <p style="font-size: 12px; color: #666;">Standard format with no header</p>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="template-option">
+                            <input type="radio" name="header-template" value="center" checked>
+                            <div class="template-card">
+                                <div class="template-label">Center Aligned</div>
+                                <div class="template-sample center-preview">
+                                    <div style="font-size: 13px; font-weight: 600;">John Smith, MBA</div>
+                                    <div style="font-size: 11px;">Toronto, ON | john@email.com | (416) 555-0123</div>
+                                    <hr style="margin: 8px 0; border: none; border-top: 1px solid #ccc;">
+                                </div>
+                            </div>
+                        </label>
+                        <label class="template-option">
+                            <input type="radio" name="header-template" value="left">
+                            <div class="template-card">
+                                <div class="template-label">Left Aligned</div>
+                                <div class="template-sample left-preview">
+                                    <div style="font-size: 13px; font-weight: 600;">John Smith, MBA</div>
+                                    <div style="font-size: 11px;">Toronto, ON | john@email.com | (416) 555-0123</div>
+                                    <hr style="margin: 8px 0; border: none; border-top: 1px solid #ccc;">
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Color Selection -->
+                <div class="settings-section">
+                    <h3>Header Color</h3>
+                    <div class="color-palette">
+                        <label class="color-option" title="Black">
+                            <input type="radio" name="header-color" value="#000000" checked>
+                            <span class="color-swatch" style="background-color: #000000;"></span>
+                            <span class="color-name">Black</span>
+                        </label>
+                        <label class="color-option" title="Dark Gray">
+                            <input type="radio" name="header-color" value="#374151">
+                            <span class="color-swatch" style="background-color: #374151;"></span>
+                            <span class="color-name">Dark Gray</span>
+                        </label>
+                        <label class="color-option" title="Navy Blue">
+                            <input type="radio" name="header-color" value="#1e3a8a">
+                            <span class="color-swatch" style="background-color: #1e3a8a;"></span>
+                            <span class="color-name">Navy</span>
+                        </label>
+                        <label class="color-option" title="Royal Blue">
+                            <input type="radio" name="header-color" value="#2563eb">
+                            <span class="color-swatch" style="background-color: #2563eb;"></span>
+                            <span class="color-name">Royal Blue</span>
+                        </label>
+                        <label class="color-option" title="Professional Blue">
+                            <input type="radio" name="header-color" value="#0284c7">
+                            <span class="color-swatch" style="background-color: #0284c7;"></span>
+                            <span class="color-name">Prof. Blue</span>
+                        </label>
+                        <label class="color-option" title="Teal">
+                            <input type="radio" name="header-color" value="#0d9488">
+                            <span class="color-swatch" style="background-color: #0d9488;"></span>
+                            <span class="color-name">Teal</span>
+                        </label>
+                        <label class="color-option" title="Forest Green">
+                            <input type="radio" name="header-color" value="#166534">
+                            <span class="color-swatch" style="background-color: #166534;"></span>
+                            <span class="color-name">Forest</span>
+                        </label>
+                        <label class="color-option" title="Burgundy">
+                            <input type="radio" name="header-color" value="#881337">
+                            <span class="color-swatch" style="background-color: #881337;"></span>
+                            <span class="color-name">Burgundy</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Font Settings -->
+                <div class="settings-section">
+                    <h3>Font Settings</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="header-font">Header Name Font</label>
+                            <select id="header-font" class="profile-input">
+                                <option value="Calibri">Calibri</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Verdana">Verdana</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="header-font-size">Header Font Size (pt)</label>
+                            <input
+                                type="number"
+                                id="header-font-size"
+                                class="profile-input"
+                                min="10"
+                                max="24"
+                                value="16"
+                                placeholder="16"
+                            >
+                            <small class="field-note">Range: 10-24 points</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="body-font">Body Text Font</label>
+                            <select id="body-font" class="profile-input">
+                                <option value="Calibri">Calibri</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Verdana">Verdana</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="body-font-size">Body Font Size (pt)</label>
+                            <input
+                                type="number"
+                                id="body-font-size"
+                                class="profile-input"
+                                min="8"
+                                max="16"
+                                value="12"
+                                placeholder="12"
+                            >
+                            <small class="field-note">Range: 8-16 points</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page Margin Settings -->
+                <div class="settings-section">
+                    <h3>Page Margins</h3>
+                    <div class="border-options">
+                        <label class="border-option">
+                            <input type="radio" name="page-border" value="none">
+                            <div class="border-card">
+                                <div class="border-label">Normal</div>
+                                <div class="border-sample">
+                                    <div style="padding: 15px; background: #f0f0f0;">
+                                        <p style="font-size: 11px; color: #666; margin: 0;">1.0" margins</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="border-option">
+                            <input type="radio" name="page-border" value="narrow" checked>
+                            <div class="border-card">
+                                <div class="border-label">Narrow</div>
+                                <div class="border-sample">
+                                    <div style="padding: 8px; background: #f0f0f0;">
+                                        <p style="font-size: 11px; color: #666; margin: 0;">0.5" margins</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="settings-section">
+                    <h3>Preview</h3>
+                    <p style="font-size: 11px; color: #666; margin-bottom: 12px; font-style: italic;">
+                        This preview shows how your header will appear in generated cover letters
+                    </p>
+                    <div id="header-preview" class="header-preview">
+                        <p class="preview-message">Fill in your information above to see a preview</p>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="settings-actions">
+                    <button type="button" class="btn-primary btn-save-profile" onclick="saveProfileSettings()">
+                        Save Settings
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="toggleProfileSettingsModal()">
+                        Cancel
+                    </button>
+                </div>
+
+                <!-- Save Status Message -->
+                <div id="profile-save-message" class="profile-save-message hidden"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Subscription Management Modal -->
@@ -273,6 +545,21 @@ Requirements:
             <p>&copy; 2025 FastCoverLetters.com. All rights reserved.</p>
         </div>
     </footer>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="modal hidden">
+        <div class="modal-content alert-modal-content">
+            <div class="alert-modal-header">
+                <h2 id="alert-modal-title">Alert</h2>
+            </div>
+            <div class="alert-modal-body">
+                <p id="alert-modal-message">Message goes here</p>
+            </div>
+            <div class="alert-modal-footer">
+                <button type="button" id="alert-modal-button" class="btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>

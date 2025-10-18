@@ -284,6 +284,33 @@ function showError(message) {
     }, 5000);
 }
 
+// Show alert modal popup
+function showAlertModal(title, message, buttonText = 'OK', onButtonClick = null) {
+    const modal = document.getElementById('alert-modal');
+    const modalTitle = document.getElementById('alert-modal-title');
+    const modalMessage = document.getElementById('alert-modal-message');
+    const modalButton = document.getElementById('alert-modal-button');
+
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    modalButton.textContent = buttonText;
+
+    // Set up button click handler
+    const handleButtonClick = () => {
+        modal.classList.add('hidden');
+        if (onButtonClick) {
+            onButtonClick();
+        }
+    };
+
+    // Remove old event listener and add new one
+    const newButton = modalButton.cloneNode(true);
+    modalButton.parentNode.replaceChild(newButton, modalButton);
+    newButton.addEventListener('click', handleButtonClick);
+
+    modal.classList.remove('hidden');
+}
+
 function showSuccess(message) {
     const successDiv = document.createElement('div');
     successDiv.className = 'success-message';
@@ -344,19 +371,8 @@ function getJobUrls() {
 }
 
 function updateGenerateButtonState() {
-    const generateBtn = document.getElementById('generate-all-btn');
-    const textTab = document.getElementById('text-resume-tab');
-    const fileTab = document.getElementById('file-resume-tab');
-    const jobData = getJobUrls();
-
-    let hasResume = false;
-    if (textTab.classList.contains('active')) {
-        hasResume = document.getElementById('resume').value.trim().length > 0;
-    } else if (fileTab.classList.contains('active')) {
-        hasResume = resumeText.length > 0;
-    }
-
-    generateBtn.disabled = !(hasResume && jobData.length > 0);
+    // Button is always enabled now
+    // Validation will be done when user clicks the button and shown as modal
 }
 
 function getResumeText() {
@@ -385,13 +401,13 @@ function addManualJob() {
         </div>
         <input
             type="text"
-            placeholder="Job Title (e.g., Senior Software Engineer)"
+            placeholder="Job Title (optional - AI will extract if empty)"
             class="manual-job-title"
             style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
         >
         <input
             type="text"
-            placeholder="Company Name (e.g., Microsoft)"
+            placeholder="Company Name (optional - AI will extract if empty)"
             class="manual-job-company"
             style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
         >
@@ -465,7 +481,8 @@ function getManualJobs() {
         const company = card.querySelector('.manual-job-company').value.trim();
         const description = card.querySelector('.manual-job-description').value.trim();
 
-        if (title && company && description) {
+        // Only description is required - title and company are optional (AI will extract if missing)
+        if (description) {
             jobs.push({
                 isManual: true,
                 title,
@@ -500,13 +517,32 @@ async function generateAllCoverLetters() {
 
     if (!resume) {
         console.log('❌ FRONTEND: No resume provided');
-        showError('Please enter your resume');
+        showAlertModal('Resume Required', 'Please upload or paste your resume before generating cover letters.', 'OK');
         return;
     }
 
     if (jobUrls.length === 0) {
         console.log('❌ FRONTEND: No job URLs provided');
-        showError('Please enter at least one job URL');
+
+        // Check which mode is active to show appropriate error message
+        const urlSection = document.getElementById('url-mode-section');
+        const isUrlMode = !urlSection.classList.contains('hidden');
+
+        const errorTitle = 'Job Information Required';
+        const errorMessage = isUrlMode
+            ? 'Please enter at least one job URL before generating cover letters.'
+            : 'Please enter at least one job description before generating cover letters.';
+
+        showAlertModal(errorTitle, errorMessage, 'OK');
+        return;
+    }
+
+    // Check if mandatory profile fields are filled
+    const profileValidation = await validateMandatoryProfileFields();
+    if (!profileValidation.isValid) {
+        showAlertModal('Complete Your Profile', profileValidation.message, 'Open Profile Settings', () => {
+            toggleProfileSettingsModal();
+        });
         return;
     }
 
@@ -917,12 +953,318 @@ function downloadFile(fileName, base64Data) {
     }
 }
 
+// Validate mandatory profile fields before generating cover letters
+async function validateMandatoryProfileFields() {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/user/profile', { headers });
+
+        if (!response.ok) {
+            return {
+                isValid: false,
+                message: 'Unable to check profile settings. Please try again.'
+            };
+        }
+
+        const profile = await response.json();
+
+        // Check if mandatory fields are filled
+        const missingFields = [];
+        if (!profile.full_name || profile.full_name.trim() === '') {
+            missingFields.push('Full Name');
+        }
+        if (!profile.phone || profile.phone.trim() === '') {
+            missingFields.push('Phone Number');
+        }
+
+        // Email is always filled from account, but let's check anyway
+        const email = currentUser?.email || '';
+        if (!email || email.trim() === '') {
+            missingFields.push('Email');
+        }
+
+        if (missingFields.length > 0) {
+            return {
+                isValid: false,
+                message: `Please complete your profile before generating cover letters. Missing required fields: ${missingFields.join(', ')}. Go to "Profile Settings" to fill in these details.`
+            };
+        }
+
+        return { isValid: true };
+    } catch (error) {
+        console.error('Error validating profile fields:', error);
+        return {
+            isValid: false,
+            message: 'Unable to check profile settings. Please try again.'
+        };
+    }
+}
+
+// Profile Settings Modal Functions
+function toggleProfileSettingsModal() {
+    const modal = document.getElementById('profile-settings-modal');
+    const isHidden = modal.classList.contains('hidden');
+
+    if (isHidden) {
+        // Opening modal - load current settings and reset button
+        resetSaveButton();
+        loadProfileSettings();
+    }
+
+    modal.classList.toggle('hidden');
+}
+
+function resetSaveButton() {
+    const saveButton = document.querySelector('.btn-save-profile');
+    if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save Settings';
+        saveButton.classList.remove('has-changes');
+    }
+}
+
+async function loadProfileSettings() {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/user/profile', { headers });
+
+        if (response.ok) {
+            const profile = await response.json();
+
+            // Populate form fields
+            document.getElementById('profile-fullname').value = profile.full_name || '';
+            document.getElementById('profile-credentials').value = profile.credentials || '';
+            document.getElementById('profile-city').value = profile.city || '';
+            document.getElementById('profile-email').value = currentUser?.email || '';
+            document.getElementById('profile-phone').value = profile.phone || '';
+            document.getElementById('profile-linkedin').value = profile.linkedin_url || '';
+
+            // Set header template
+            const templateRadio = document.querySelector(`input[name="header-template"][value="${profile.header_template}"]`);
+            if (templateRadio) {
+                templateRadio.checked = true;
+            }
+
+            // Set header color
+            const colorRadio = document.querySelector(`input[name="header-color"][value="${profile.header_color}"]`);
+            if (colorRadio) {
+                colorRadio.checked = true;
+            }
+
+            // Set font settings
+            console.log('📝 Loading font settings:', {
+                header_font: profile.header_font,
+                header_font_size: profile.header_font_size,
+                body_font: profile.body_font,
+                body_font_size: profile.body_font_size,
+                page_border: profile.page_border
+            });
+
+            document.getElementById('header-font').value = profile.header_font || 'Calibri';
+            document.getElementById('header-font-size').value = profile.header_font_size || 16;
+            document.getElementById('body-font').value = profile.body_font || 'Calibri';
+            document.getElementById('body-font-size').value = profile.body_font_size || 12;
+
+            // Set page border
+            const borderRadio = document.querySelector(`input[name="page-border"][value="${profile.page_border || 'narrow'}"]`);
+            if (borderRadio) {
+                borderRadio.checked = true;
+            }
+
+            console.log('✅ Font settings loaded - Header:', document.getElementById('header-font').value, document.getElementById('header-font-size').value, '| Body:', document.getElementById('body-font').value, document.getElementById('body-font-size').value);
+
+            // Update preview
+            updateHeaderPreview();
+
+            // Store initial settings and reset save button
+            storeInitialProfileSettings();
+            updateSaveButtonState();
+        }
+    } catch (error) {
+        console.error('Error loading profile settings:', error);
+        // Still populate email even if profile fetch fails
+        document.getElementById('profile-email').value = currentUser?.email || '';
+    }
+}
+
+async function saveProfileSettings() {
+    const saveButton = document.querySelector('.btn-save-profile');
+    const originalButtonText = saveButton.textContent;
+
+    try {
+        const saveMessage = document.getElementById('profile-save-message');
+        saveMessage.classList.add('hidden');
+
+        // Disable button and show loading state
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving...';
+
+        // Get form values
+        const profileData = {
+            full_name: document.getElementById('profile-fullname').value.trim(),
+            credentials: document.getElementById('profile-credentials').value.trim(),
+            city: document.getElementById('profile-city').value.trim(),
+            phone: document.getElementById('profile-phone').value.trim(),
+            linkedin_url: document.getElementById('profile-linkedin').value.trim(),
+            header_template: document.querySelector('input[name="header-template"]:checked').value,
+            header_color: document.querySelector('input[name="header-color"]:checked').value,
+            header_font: document.getElementById('header-font').value,
+            header_font_size: parseInt(document.getElementById('header-font-size').value) || 16,
+            body_font: document.getElementById('body-font').value,
+            body_font_size: parseInt(document.getElementById('body-font-size').value) || 12,
+            page_border: document.querySelector('input[name="page-border"]:checked').value
+        };
+
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/user/profile', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(profileData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            // Update initial settings to current settings (reset change tracking)
+            storeInitialProfileSettings();
+
+            // Reset button before closing
+            saveButton.disabled = false;
+            saveButton.textContent = 'Save Settings';
+
+            // Show success message briefly
+            showSuccess('Profile settings saved!');
+
+            // Close modal immediately
+            toggleProfileSettingsModal();
+        } else {
+            saveMessage.textContent = data.error || 'Failed to save profile settings';
+            saveMessage.className = 'profile-save-message error';
+            saveMessage.classList.remove('hidden');
+
+            // Re-enable button on error
+            saveButton.disabled = false;
+            saveButton.textContent = originalButtonText;
+        }
+    } catch (error) {
+        console.error('Error saving profile settings:', error);
+        const saveMessage = document.getElementById('profile-save-message');
+        saveMessage.textContent = 'Failed to save profile settings';
+        saveMessage.className = 'profile-save-message error';
+        saveMessage.classList.remove('hidden');
+
+        // Re-enable button on error
+        saveButton.disabled = false;
+        saveButton.textContent = originalButtonText;
+    }
+}
+
+// Track profile settings changes
+let initialProfileSettings = null;
+
+function getCurrentProfileSettings() {
+    const settings = {
+        full_name: document.getElementById('profile-fullname')?.value.trim() || '',
+        credentials: document.getElementById('profile-credentials')?.value.trim() || '',
+        city: document.getElementById('profile-city')?.value.trim() || '',
+        phone: document.getElementById('profile-phone')?.value.trim() || '',
+        linkedin_url: document.getElementById('profile-linkedin')?.value.trim() || '',
+        header_template: document.querySelector('input[name="header-template"]:checked')?.value || 'center',
+        header_color: document.querySelector('input[name="header-color"]:checked')?.value || '#000000',
+        header_font: document.getElementById('header-font')?.value || 'Calibri',
+        header_font_size: document.getElementById('header-font-size')?.value || '16',
+        body_font: document.getElementById('body-font')?.value || 'Calibri',
+        body_font_size: document.getElementById('body-font-size')?.value || '12',
+        page_border: document.querySelector('input[name="page-border"]:checked')?.value || 'narrow'
+    };
+    return settings;
+}
+
+function storeInitialProfileSettings() {
+    initialProfileSettings = getCurrentProfileSettings();
+}
+
+function updateSaveButtonState() {
+    const saveButton = document.querySelector('.btn-save-profile');
+    if (!saveButton) return;
+
+    if (!initialProfileSettings) {
+        // If we don't have initial settings yet, button should be grey
+        saveButton.classList.remove('has-changes');
+        return;
+    }
+
+    const currentSettings = getCurrentProfileSettings();
+    const hasChanges = JSON.stringify(currentSettings) !== JSON.stringify(initialProfileSettings);
+
+    console.log('🔄 Checking for changes:', hasChanges);
+    console.log('Initial:', initialProfileSettings);
+    console.log('Current:', currentSettings);
+
+    if (hasChanges) {
+        saveButton.classList.add('has-changes');
+    } else {
+        saveButton.classList.remove('has-changes');
+    }
+}
+
+function updateHeaderPreview() {
+    const preview = document.getElementById('header-preview');
+    const template = document.querySelector('input[name="header-template"]:checked').value;
+    const color = document.querySelector('input[name="header-color"]:checked').value;
+
+    const fullName = document.getElementById('profile-fullname').value.trim();
+    const credentials = document.getElementById('profile-credentials').value.trim();
+    const city = document.getElementById('profile-city').value.trim();
+    const email = document.getElementById('profile-email').value.trim();
+    const phone = document.getElementById('profile-phone').value.trim();
+    const linkedin = document.getElementById('profile-linkedin').value.trim();
+
+    if (template === 'none') {
+        preview.innerHTML = '<p class="preview-message">No header will be added to your cover letters</p>';
+        return;
+    }
+
+    // Build header lines
+    let line1 = fullName || 'Your Name';
+    if (credentials) {
+        line1 += ', ' + credentials;
+    }
+
+    // Build line 2 with smart separators
+    const line2Parts = [];
+    if (city) line2Parts.push(city);
+    if (email) line2Parts.push(email);
+    if (phone) line2Parts.push(phone);
+    if (linkedin) {
+        // Show shortened LinkedIn URL in preview
+        const linkedinDisplay = linkedin.replace(/^(https?:\/\/)?(www\.)?/, '');
+        line2Parts.push(linkedinDisplay);
+    }
+
+    const line2 = line2Parts.length > 0 ? line2Parts.join(' | ') : 'Contact info will appear here';
+
+    const alignment = template === 'center' ? 'center' : 'left';
+
+    preview.innerHTML = `
+        <div style="text-align: ${alignment}; color: ${color}; font-family: Calibri, sans-serif;">
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">${line1}</div>
+            <div style="font-size: 12px; margin-bottom: 8px;">${line2}</div>
+            <hr style="border: none; border-top: 1px solid ${color}; opacity: 0.5;">
+        </div>
+    `;
+}
+
 // Close modals when clicking outside
 window.onclick = function(event) {
     const subscriptionModal = document.getElementById('subscription-modal');
+    const profileModal = document.getElementById('profile-settings-modal');
 
     if (event.target === subscriptionModal) {
         toggleSubscriptionModal();
+    }
+    if (event.target === profileModal) {
+        toggleProfileSettingsModal();
     }
 }
 
@@ -936,6 +1278,31 @@ document.addEventListener('input', function(e) {
         e.target.classList.contains('manual-job-company') ||
         e.target.classList.contains('manual-job-description')) {
         updateGenerateButtonState();
+    }
+
+    // Update profile header preview when profile inputs change
+    if (e.target.classList.contains('profile-input')) {
+        updateHeaderPreview();
+        updateSaveButtonState();
+    }
+});
+
+// Add event listener for template, color, and border radio buttons
+document.addEventListener('change', function(e) {
+    if (e.target.name === 'header-template' || e.target.name === 'header-color') {
+        updateHeaderPreview();
+        updateSaveButtonState();
+    }
+    // Also update preview when page margins change
+    if (e.target.name === 'page-border') {
+        console.log('📐 Page margins changed to:', e.target.value);
+        updateSaveButtonState();
+    }
+    // Update preview when font settings change
+    if (e.target.id === 'header-font' || e.target.id === 'body-font' ||
+        e.target.id === 'header-font-size' || e.target.id === 'body-font-size') {
+        console.log('🔤 Font setting changed:', e.target.id, '=', e.target.value);
+        updateHeaderPreview();
     }
 });
 

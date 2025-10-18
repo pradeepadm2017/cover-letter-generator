@@ -4,6 +4,7 @@ const cors = require('cors');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const OpenAI = require('openai');
+const Anthropic = require('@anthropic-ai/sdk');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -83,9 +84,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize OpenAI
+// Initialize OpenAI (for extraction only)
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
+});
+
+// Initialize Claude (for cover letter generation)
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
 });
 
 // Job Description Cache (24-hour TTL)
@@ -401,6 +407,92 @@ app.get('/api/user-segmentation', async (req, res) => {
   }
 });
 
+// Get user profile header settings
+app.get('/api/user/profile', ensureAuthenticated, async (req, res) => {
+  try {
+    const profile = await userOps.getProfile(req.user.id);
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    res.json(profile);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ error: 'Failed to fetch profile settings' });
+  }
+});
+
+// Update user profile header settings
+app.post('/api/user/profile', ensureAuthenticated, async (req, res) => {
+  try {
+    const {
+      full_name, credentials, city, phone, linkedin_url,
+      header_template, header_color,
+      header_font, header_font_size,
+      body_font, body_font_size,
+      page_border
+    } = req.body;
+
+    // Validate header_template
+    if (header_template && !['none', 'center', 'left'].includes(header_template)) {
+      return res.status(400).json({ error: 'Invalid header template. Must be none, center, or left.' });
+    }
+
+    // Validate header_color (basic hex color validation)
+    if (header_color && !/^#[0-9A-Fa-f]{6}$/.test(header_color)) {
+      return res.status(400).json({ error: 'Invalid header color. Must be a valid hex color (e.g., #000000).' });
+    }
+
+    // Validate fonts
+    const allowedFonts = ['Calibri', 'Arial', 'Times New Roman', 'Georgia', 'Verdana'];
+    if (header_font && !allowedFonts.includes(header_font)) {
+      return res.status(400).json({ error: 'Invalid header font. Must be one of: ' + allowedFonts.join(', ') });
+    }
+    if (body_font && !allowedFonts.includes(body_font)) {
+      return res.status(400).json({ error: 'Invalid body font. Must be one of: ' + allowedFonts.join(', ') });
+    }
+
+    // Validate font sizes
+    if (header_font_size && (header_font_size < 10 || header_font_size > 24)) {
+      return res.status(400).json({ error: 'Invalid header font size. Must be between 10 and 24.' });
+    }
+    if (body_font_size && (body_font_size < 8 || body_font_size > 16)) {
+      return res.status(400).json({ error: 'Invalid body font size. Must be between 8 and 16.' });
+    }
+
+    // Validate page border
+    if (page_border && !['none', 'narrow'].includes(page_border)) {
+      return res.status(400).json({ error: 'Invalid page border. Must be none or narrow.' });
+    }
+
+    const profileData = {
+      full_name: full_name || '',
+      credentials: credentials || '',
+      city: city || '',
+      phone: phone || '',
+      linkedin_url: linkedin_url || '',
+      header_template: header_template || 'center',
+      header_color: header_color || '#000000',
+      header_font: header_font || 'Calibri',
+      header_font_size: header_font_size || 16,
+      body_font: body_font || 'Calibri',
+      body_font_size: body_font_size || 12,
+      page_border: page_border || 'narrow'
+    };
+
+    const updatedProfile = await userOps.updateProfile(req.user.id, profileData);
+
+    res.json({
+      success: true,
+      profile: updatedProfile
+    });
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    res.status(500).json({ error: 'Failed to update profile settings' });
+  }
+});
+
 // Route to handle resume file upload
 app.post('/api/upload-resume', upload.single('resume'), async (req, res) => {
   try {
@@ -589,6 +681,61 @@ async function fetchJobDescription(url) {
   }
 }
 
+// Helper function to extract job title and company name using GPT-4o-mini
+async function extractJobTitleAndCompany(jobDescription) {
+  console.log('🤖 Using GPT-4o-mini to extract job title and company name...');
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a job posting analyzer. Extract the job title and company name from job descriptions. Respond ONLY with valid JSON in this exact format: {\"jobTitle\": \"extracted title\", \"companyName\": \"extracted company\"}. If you cannot find either field, use null for that field."
+        },
+        {
+          role: "user",
+          content: `Extract the job title and company name from this job posting:\n\n${jobDescription.substring(0, 2000)}`
+        }
+      ],
+      max_tokens: 150,
+      temperature: 0.1
+    });
+
+    const responseText = completion.choices[0].message.content.trim();
+    console.log('🤖 GPT-4o-mini raw response:', responseText);
+
+    // Capture token usage
+    const tokenUsage = completion.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+    console.log(`📊 Token usage - Input: ${tokenUsage.prompt_tokens}, Output: ${tokenUsage.completion_tokens}, Total: ${tokenUsage.total_tokens}`);
+
+    // Parse JSON response
+    const extracted = JSON.parse(responseText);
+
+    const jobTitle = extracted.jobTitle || null;
+    const companyName = extracted.companyName || null;
+
+    console.log(`✅ Extracted - Job Title: "${jobTitle}", Company: "${companyName}"`);
+
+    return {
+      jobTitle,
+      companyName,
+      tokenUsage: {
+        input: tokenUsage.prompt_tokens,
+        output: tokenUsage.completion_tokens,
+        total: tokenUsage.total_tokens
+      }
+    };
+  } catch (error) {
+    console.error('❌ GPT-4o-mini extraction failed:', error.message);
+    return {
+      jobTitle: null,
+      companyName: null,
+      tokenUsage: { input: 0, output: 0, total: 0 }
+    };
+  }
+}
+
 // Helper function to extract candidate name from resume
 function extractCandidateName(resume) {
   const lines = resume.split('\n');
@@ -761,6 +908,42 @@ function cleanFilename(filename) {
     .substring(0, 100); // Limit length
 }
 
+// Helper function to generate header based on profile settings
+function generateHeaderForCoverLetter(profile, userEmail) {
+  if (!profile || profile.header_template === 'none') {
+    return null; // No header
+  }
+
+  const alignment = profile.header_template === 'center' ? 'center' : 'left';
+  const color = profile.header_color || '#000000';
+
+  // Build line 1: Name with credentials
+  let line1 = profile.full_name || '';
+  if (profile.credentials) {
+    line1 += `, ${profile.credentials}`;
+  }
+
+  // Build line 2: Contact info with smart separators
+  const line2Parts = [];
+  if (profile.city) line2Parts.push(profile.city);
+  if (userEmail) line2Parts.push(userEmail);
+  if (profile.phone) line2Parts.push(profile.phone);
+  if (profile.linkedin_url) {
+    // Shorten LinkedIn URL for display
+    const linkedinDisplay = profile.linkedin_url.replace(/^(https?:\/\/)?(www\.)?/, '');
+    line2Parts.push(linkedinDisplay);
+  }
+
+  const line2 = line2Parts.join(' | ');
+
+  return {
+    line1,
+    line2,
+    alignment,
+    color
+  };
+}
+
 // Route to generate cover letters for multiple job URLs
 app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) => {
   console.log('🚀 API REQUEST RECEIVED: /api/generate-cover-letters');
@@ -771,6 +954,16 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
 
     if (!resume || !jobUrls || !Array.isArray(jobUrls) || jobUrls.length === 0) {
       return res.status(400).json({ error: 'Resume and job URLs are required' });
+    }
+
+    // Fetch user profile for header settings
+    let userProfile = null;
+    try {
+      userProfile = await userOps.getProfile(req.user.id);
+      console.log('📋 User profile loaded for header generation:', userProfile ? 'success' : 'not found');
+    } catch (profileError) {
+      console.error('⚠️ Error loading user profile:', profileError);
+      // Continue without header if profile fetch fails
     }
 
     console.log(`📊 Processing ${jobUrls.length} jobs with parallel processing (batch size: 10)`);
@@ -803,6 +996,9 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
         let usedFallback = false;
         let fallbackReason = '';
 
+        // Track token usage for this job (shared by both manual and URL jobs)
+        let extractionTokens = { input: 0, output: 0, total: 0 };
+
         // Get job description (either from URL scraping or manual paste)
         let jobDescription;
 
@@ -819,15 +1015,67 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
             };
           }
 
-          if (jobItem.description.length > 10000) {
+          if (jobItem.description.length > 20000) {
             return {
               jobUrl: jobUrl,
               success: false,
-              error: 'Job description is too long. Please keep it under 10,000 characters.'
+              error: 'Job description is too long. Please keep it under 20,000 characters.'
             };
           }
 
-          jobDescription = `Job Title: ${jobItem.title}\n\nCompany: ${jobItem.company}\n\nJob Description:\n${jobItem.description}`;
+          // Check if title or company are missing - extract using AI if needed
+          let finalTitle = jobItem.title.trim();
+          let finalCompany = jobItem.company.trim();
+
+          if (!finalTitle || !finalCompany) {
+            console.log(`🤖 [Job ${index + 1}] Missing ${!finalTitle ? 'title' : ''}${!finalTitle && !finalCompany ? ' and ' : ''}${!finalCompany ? 'company' : ''} - using AI extraction...`);
+
+            const extracted = await extractJobTitleAndCompany(jobItem.description);
+
+            // Capture extraction token usage
+            extractionTokens = extracted.tokenUsage;
+
+            if (!finalTitle) {
+              finalTitle = extracted.jobTitle || '';
+            }
+            if (!finalCompany) {
+              finalCompany = extracted.companyName || '';
+            }
+
+            // If AI extraction failed to find required fields, return error
+            if (!finalTitle || !finalCompany) {
+              const missingFields = [];
+              if (!finalTitle) missingFields.push('job title');
+              if (!finalCompany) missingFields.push('company name');
+
+              await analyticsOps.trackGenerationAttempt(
+                req.user.id,
+                jobUrl,
+                true, // manual
+                false, // failed
+                `Could not extract ${missingFields.join(' and ')} from job description`,
+                Date.now() - jobStartTime,
+                {
+                  extractionInput: extractionTokens.input,
+                  extractionOutput: extractionTokens.output,
+                  generationInput: 0,
+                  generationOutput: 0,
+                  retryInput: 0,
+                  retryOutput: 0
+                }
+              );
+
+              return {
+                jobUrl: jobUrl,
+                success: false,
+                error: `Could not extract ${missingFields.join(' or ')} from the job description. Please provide ${missingFields.join(' and ')} manually to generate a cover letter.`
+              };
+            }
+
+            console.log(`✅ [Job ${index + 1}] AI extraction successful - Title: "${finalTitle}", Company: "${finalCompany}"`);
+          }
+
+          jobDescription = `Job Title: ${finalTitle}\n\nCompany: ${finalCompany}\n\nJob Description:\n${jobItem.description}`;
         } else {
           // URL-based job - scrape it
           let scrapingMethod = 'cached';
@@ -905,7 +1153,15 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
                 false, // not manual
                 false, // failed
                 'Could not extract meaningful job description from URL',
-                Date.now() - jobStartTime
+                Date.now() - jobStartTime,
+                {
+                  extractionInput: 0,
+                  extractionOutput: 0,
+                  generationInput: 0,
+                  generationOutput: 0,
+                  retryInput: 0,
+                  retryOutput: 0
+                }
               );
 
               return {
@@ -970,7 +1226,15 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
               false, // not manual
               false, // failed
               friendlyError,
-              Date.now() - jobStartTime
+              Date.now() - jobStartTime,
+              {
+                extractionInput: 0,
+                extractionOutput: 0,
+                generationInput: 0,
+                generationOutput: 0,
+                retryInput: 0,
+                retryOutput: 0
+              }
             );
 
             return {
@@ -1069,33 +1333,33 @@ CONTENT REQUIREMENTS:
    - Use industry-relevant keywords from the job posting
    - Show understanding of the role and company
 
-3. MANDATORY STRUCTURE - YOU MUST WRITE EXACTLY 4 PARAGRAPHS (minimum 3 sentences each):
+3. MANDATORY STRUCTURE - EXACTLY 4 PARAGRAPHS (3-4 sentences each, 300-350 words TOTAL):
 
-PARAGRAPH 1: Strong opening
+PARAGRAPH 1: Strong opening (3-4 sentences)
 - Mention the specific job title and company name
 - State a brief value proposition
 - Express interest in the role
-- Minimum 3 sentences
 
-PARAGRAPH 2: Most relevant experience and achievements
-- Highlight your most impressive relevant achievement with specific metrics
-- Include quantifiable results (dollar amounts, percentages, numbers)
-- Connect this experience directly to job requirements
-- Minimum 3 sentences
+PARAGRAPH 2: Most relevant experience (3-4 sentences)
+- Highlight ONE impressive achievement with specific metrics
+- Include quantifiable results
+- Connect directly to job requirements
 
-PARAGRAPH 3: Additional qualifications and skills
-- Highlight other relevant skills and experiences
-- Show understanding of the company and its values
-- Demonstrate knowledge of industry trends or challenges
-- Minimum 3 sentences
+PARAGRAPH 3: Additional qualifications (3-4 sentences)
+- Highlight 2-3 other relevant skills/experiences
+- Show understanding of company values
+- Demonstrate industry knowledge
 
-PARAGRAPH 4: Enthusiastic closing
-- Express specific enthusiasm for this role and company
-- Mention what you can contribute
-- Request an interview or next steps
-- Minimum 3 sentences
+PARAGRAPH 4: Enthusiastic closing (3-4 sentences)
+- Express enthusiasm for role and company
+- Mention key contribution you can make
+- Request interview/next steps
 
-CRITICAL REQUIREMENT: You MUST write EXACTLY 4 paragraphs. Count them before submitting. If you write 3 paragraphs, you have failed. Each paragraph must be separated by a blank line.
+CRITICAL REQUIREMENTS:
+- EXACTLY 4 paragraphs (separated by blank lines)
+- TOTAL LENGTH: 300-350 words (be concise and impactful)
+- Each paragraph: 3-4 sentences (NOT more)
+- Count your words and paragraphs before submitting
 
 CANDIDATE RESUME:
 ${resume}
@@ -1103,29 +1367,41 @@ ${resume}
 JOB POSTING CONTENT:
 ${jobDescription}
 
-Create a highly targeted cover letter that could only work for this specific job. Make it compelling and results-focused. Remember: EXACTLY 4 PARAGRAPHS. Request: ${requestId}`;
+Create a highly targeted cover letter that could only work for this specific job. Make it compelling and results-focused. Remember: EXACTLY 4 PARAGRAPHS, 300-350 WORDS TOTAL, 3-4 SENTENCES PER PARAGRAPH. Request: ${requestId}`;
 
-        console.log('🔍 Sending prompt to LLM:', prompt.substring(0, 300) + '...');
+        console.log('🔍 Sending prompt to Claude Haiku 3.5:', prompt.substring(0, 300) + '...');
 
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+        // Use Claude for cover letter generation
+        const completion = await anthropic.messages.create({
+          model: "claude-3-5-haiku-20241022",
+          max_tokens: 2000,
+          temperature: 0.3,
+          system: "You are a professional cover letter writer. You must follow formatting instructions exactly. Never include contact information, asterisks, or content outside the specified format.",
           messages: [
-            {
-              role: "system",
-              content: "You are a professional cover letter writer. You must follow formatting instructions exactly. Never include contact information, asterisks, or content outside the specified format."
-            },
             {
               role: "user",
               content: prompt
             }
-          ],
-          max_tokens: 1500,
-          temperature: 0.3
+          ]
         });
 
-        console.log('OpenAI Response:', JSON.stringify(completion, null, 2));
+        // Capture token usage from main generation (Claude uses input_tokens and output_tokens)
+        const mainTokenUsage = completion.usage || { input_tokens: 0, output_tokens: 0 };
+        const totalMainTokens = mainTokenUsage.input_tokens + mainTokenUsage.output_tokens;
+        console.log(`📊 Main generation tokens (Claude Haiku 3.5) - Input: ${mainTokenUsage.input_tokens}, Output: ${mainTokenUsage.output_tokens}, Total: ${totalMainTokens}`);
 
-        let coverLetter = completion.choices[0].message.content;
+        console.log('Claude Response:', JSON.stringify(completion, null, 2));
+
+        let coverLetter = completion.content[0].text;
+
+        // Initialize total token tracking
+        let totalInputTokens = extractionTokens.input + mainTokenUsage.input_tokens;
+        let totalOutputTokens = extractionTokens.output + mainTokenUsage.output_tokens;
+        let totalTokens = extractionTokens.total + totalMainTokens;
+
+        // Track retry tokens separately (Claude Haiku 3.5)
+        let retryInputTokens = 0;
+        let retryOutputTokens = 0;
 
         // PARAGRAPH VALIDATION WITH RETRY
         // Helper function to count content paragraphs (excluding greeting and closing)
@@ -1162,33 +1438,35 @@ CRITICAL ALERT: You FAILED the paragraph count requirement. You MUST write EXACT
 
 Structure MUST be:
 1. Dear Hiring Manager,
-2. [PARAGRAPH 1 - Opening]
-3. [PARAGRAPH 2 - Main experience]
-4. [PARAGRAPH 3 - Additional qualifications]
-5. [PARAGRAPH 4 - Closing]
+2. [PARAGRAPH 1 - Opening: 3-4 sentences]
+3. [PARAGRAPH 2 - Main experience: 3-4 sentences]
+4. [PARAGRAPH 3 - Additional qualifications: 3-4 sentences]
+5. [PARAGRAPH 4 - Closing: 3-4 sentences]
 6. Best Regards,
 7. ${candidateName}
 
-Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you have FAILED.`;
+CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count your words and paragraphs before submitting. If you write 3 or 5 paragraphs, you have FAILED.`;
 
           try {
-            const retryCompletion = await openai.chat.completions.create({
-              model: "gpt-4o-mini",
+            const retryCompletion = await anthropic.messages.create({
+              model: "claude-3-5-haiku-20241022",
+              max_tokens: 2000,
+              temperature: 0.3,
+              system: "You are a professional cover letter writer. You must follow formatting instructions exactly. CRITICAL: Write EXACTLY 4 paragraphs of content between greeting and closing. Never include contact information, asterisks, or content outside the specified format.",
               messages: [
-                {
-                  role: "system",
-                  content: "You are a professional cover letter writer. You must follow formatting instructions exactly. CRITICAL: Write EXACTLY 4 paragraphs of content between greeting and closing. Never include contact information, asterisks, or content outside the specified format."
-                },
                 {
                   role: "user",
                   content: enhancedPrompt
                 }
-              ],
-              max_tokens: 1500,
-              temperature: 0.3
+              ]
             });
 
-            const retryCoverLetter = retryCompletion.choices[0].message.content;
+            // Capture retry token usage (Claude uses input_tokens and output_tokens)
+            const retryTokenUsage = retryCompletion.usage || { input_tokens: 0, output_tokens: 0 };
+            const totalRetryTokens = retryTokenUsage.input_tokens + retryTokenUsage.output_tokens;
+            console.log(`📊 Retry tokens (Claude Haiku 3.5) - Input: ${retryTokenUsage.input_tokens}, Output: ${retryTokenUsage.output_tokens}, Total: ${totalRetryTokens}`);
+
+            const retryCoverLetter = retryCompletion.content[0].text;
             const retryParagraphCount = countContentParagraphs(retryCoverLetter);
             console.log(`📊 Retry paragraph count: ${retryParagraphCount} (target: 4)`);
 
@@ -1197,12 +1475,27 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
               coverLetter = retryCoverLetter;
               paragraphCount = retryParagraphCount;
               console.log('✅ Retry successful! Using retry result with exactly 4 paragraphs.');
+              // Update retry tokens since we're using the retry result
+              retryInputTokens = retryTokenUsage.input_tokens;
+              retryOutputTokens = retryTokenUsage.output_tokens;
+              // Update totals
+              totalInputTokens += retryInputTokens;
+              totalOutputTokens += retryOutputTokens;
+              totalTokens += totalRetryTokens;
             } else if (Math.abs(retryParagraphCount - 4) < Math.abs(paragraphCount - 4)) {
               coverLetter = retryCoverLetter;
               paragraphCount = retryParagraphCount;
               console.log(`⚠️ Retry produced ${retryParagraphCount} paragraphs (closer to 4). Using retry result.`);
+              // Update retry tokens since we're using the retry result
+              retryInputTokens = retryTokenUsage.input_tokens;
+              retryOutputTokens = retryTokenUsage.output_tokens;
+              // Update totals
+              totalInputTokens += retryInputTokens;
+              totalOutputTokens += retryOutputTokens;
+              totalTokens += totalRetryTokens;
             } else {
               console.log(`⚠️ Retry produced ${retryParagraphCount} paragraphs. Keeping original with ${paragraphCount} paragraphs.`);
+              // NOT adding retry tokens since we're not using the retry result
             }
           } catch (retryError) {
             console.error('❌ Retry failed:', retryError.message);
@@ -1303,6 +1596,26 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
           console.log('🔧 Ending check:', coverLetter.substring(Math.max(0, coverLetter.length - 200)));
         }
 
+        // Add header if profile is configured
+        const headerData = generateHeaderForCoverLetter(userProfile, req.user.email);
+        if (headerData) {
+          console.log('📋 Adding header to cover letter:', headerData);
+
+          // Build header text for plain text version
+          let headerText = '';
+          if (headerData.line1) {
+            headerText += headerData.line1 + '\n';
+          }
+          if (headerData.line2) {
+            headerText += headerData.line2 + '\n';
+          }
+          headerText += '________________________________\n\n'; // Separator line
+
+          // Prepend header to cover letter
+          coverLetter = headerText + coverLetter;
+          console.log('✅ Header added to cover letter');
+        }
+
         console.log('Cover letter content:', coverLetter);
         console.log('Cover letter length:', coverLetter ? coverLetter.length : 'null/undefined');
 
@@ -1365,8 +1678,82 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
           const paragraphs = coverLetter.split('\n\n');
           const docParagraphs = [];
 
+          // Get font settings from user profile (apply to body text)
+          const bodyFontSize = (userProfile?.body_font_size || 12) * 2; // Convert points to half-points
+          const bodyFont = userProfile?.body_font || 'Calibri';
+
+          // Add header to Word document if configured
+          if (headerData) {
+            const { line1, line2, alignment, color } = headerData;
+            const hexColor = color.replace('#', ''); // Remove # for docx
+
+            // Add name/credentials line
+            if (line1) {
+              const headerFontSize = (userProfile?.header_font_size || 16) * 2; // Convert points to half-points
+              const headerFont = userProfile?.header_font || 'Calibri';
+
+              docParagraphs.push(new Paragraph({
+                children: [new TextRun({
+                  text: line1,
+                  size: headerFontSize,
+                  font: headerFont,
+                  color: hexColor,
+                  bold: true
+                })],
+                alignment: alignment === 'center' ? 'center' : 'left',
+                spacing: {
+                  after: 80, // Reduced spacing after name
+                  line: 276
+                }
+              }));
+            }
+
+            // Add contact info line
+            if (line2) {
+              docParagraphs.push(new Paragraph({
+                children: [new TextRun({
+                  text: line2,
+                  size: 24, // 12pt font
+                  font: 'Calibri',
+                  color: hexColor
+                })],
+                alignment: alignment === 'center' ? 'center' : 'left',
+                spacing: {
+                  after: 120, // Spacing after contact line
+                  line: 276
+                }
+              }));
+            }
+
+            // Add horizontal line separator using border
+            docParagraphs.push(new Paragraph({
+              children: [new TextRun({ text: '' })],
+              border: {
+                top: {
+                  color: hexColor,
+                  space: 1,
+                  style: 'single',
+                  size: 18 // Increased from 6 to make it bolder
+                }
+              },
+              spacing: {
+                after: 300, // Match paragraph spacing (reduced from 400)
+                line: 276
+              }
+            }));
+          }
+
           for (let p = 0; p < paragraphs.length; p++) {
             const paragraphText = paragraphs[p].trim();
+
+            // Skip the entire first paragraph if it contains the header (header lines are joined with \n)
+            if (headerData && p === 0 && (
+              paragraphText.includes(headerData.line1) ||
+              paragraphText.includes('________________________________')
+            )) {
+              console.log('🧹 Skipping header paragraph in Word document (already added as formatted header)');
+              continue;
+            }
 
             // Check if this is the "Best Regards," line
             if (paragraphText === 'Best Regards,' && p === paragraphs.length - 1) {
@@ -1377,8 +1764,8 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
               docParagraphs.push(new Paragraph({
                 children: [new TextRun({
                   text: 'Best Regards,',
-                  size: 24, // 12pt font (size is in half-points)
-                  font: 'Calibri',
+                  size: bodyFontSize,
+                  font: bodyFont,
                 })],
                 spacing: {
                   after: 200, // Increased spacing
@@ -1390,8 +1777,8 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
               docParagraphs.push(new Paragraph({
                 children: [new TextRun({
                   text: candidateName,
-                  size: 24, // 12pt font
-                  font: 'Calibri',
+                  size: bodyFontSize,
+                  font: bodyFont,
                 })],
                 spacing: {
                   after: 300, // Increased spacing
@@ -1415,8 +1802,8 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
               docParagraphs.push(new Paragraph({
                 children: [new TextRun({
                   text: candidateName,
-                  size: 24, // 12pt font
-                  font: 'Calibri',
+                  size: bodyFontSize,
+                  font: bodyFont,
                 })],
                 spacing: {
                   after: 300,
@@ -1469,8 +1856,8 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
               docParagraphs.push(new Paragraph({
                 children: [new TextRun({
                   text: paragraphText,
-                  size: 24, // 12pt font (size is in half-points)
-                  font: 'Calibri',
+                  size: bodyFontSize,
+                  font: bodyFont,
                 })],
                 spacing: {
                   after: 300, // Increased spacing after each paragraph
@@ -1480,10 +1867,37 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
             }
           }
 
+          // Get page margin settings from user profile (using page_border field for backwards compatibility)
+          const marginSetting = userProfile?.page_border || 'narrow';
+          console.log(`📐 Applying page margins: ${marginSetting}`);
+
+          // MS Word margin presets (in twips: 1 inch = 1440 twips)
+          const marginSizes = {
+            'none': 1440,      // Normal: 1 inch on all sides
+            'narrow': 720,     // Narrow: 0.5 inches on all sides
+            'moderate': 1440,  // Moderate: 1 inch on all sides (same as normal)
+            'wide': 2160       // Wide: 1.5 inches on all sides
+          };
+          const marginSize = marginSizes[marginSetting] || 720;
+
+          // Create section properties with page margins
+          const sectionProperties = {
+            page: {
+              margin: {
+                top: marginSize,
+                right: marginSize,
+                bottom: marginSize,
+                left: marginSize
+              }
+            }
+          };
+
+          console.log(`✅ Page margins applied: ${marginSize} twips (${marginSetting} = ${(marginSize / 1440).toFixed(2)} inches)`);
+
           // Create Word document
           const doc = new Document({
             sections: [{
-              properties: {},
+              properties: sectionProperties,
               children: docParagraphs
             }]
           });
@@ -1503,14 +1917,25 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
 
         await usageOps.incrementUsage(req.user.id);
 
-        // Track successful generation
+        // Track successful generation with token data
+        console.log(`📊 Total tokens for job ${index + 1} - Input: ${totalInputTokens}, Output: ${totalOutputTokens}, Total: ${totalTokens}`);
+
+        // Pass model-specific token data
         await analyticsOps.trackGenerationAttempt(
           req.user.id,
           jobUrl,
           isManualJob,
-          true,
-          null,
-          Date.now() - jobStartTime
+          true,  // success
+          null,  // error message
+          Date.now() - jobStartTime,
+          {
+            extractionInput: extractionTokens.input,
+            extractionOutput: extractionTokens.output,
+            generationInput: mainTokenUsage.input_tokens,
+            generationOutput: mainTokenUsage.output_tokens,
+            retryInput: retryInputTokens,
+            retryOutput: retryOutputTokens
+          }
         );
 
         return {
@@ -1534,7 +1959,15 @@ Count your paragraphs before submitting. If you write 3 or 5 paragraphs, you hav
           isManualJob,
           false,
           error.message,
-          Date.now() - jobStartTime
+          Date.now() - jobStartTime,
+          {
+            extractionInput: 0,
+            extractionOutput: 0,
+            generationInput: 0,
+            generationOutput: 0,
+            retryInput: 0,
+            retryOutput: 0
+          }
         );
 
         return {
