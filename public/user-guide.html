@@ -133,11 +133,17 @@
     <div id="content">Loading user guide...</div>
 
     <script>
+        // Configure marked to generate heading IDs
+        marked.setOptions({
+            headerIds: true,
+            mangle: false
+        });
+
         // Fetch the markdown content and convert it to HTML
         fetch('USER_GUIDE.md')
             .then(response => response.text())
             .then(markdown => {
-                // Convert markdown to HTML
+                // Convert markdown to HTML with heading IDs
                 const html = marked.parse(markdown);
                 document.getElementById('content').innerHTML = html;
 
@@ -153,9 +159,17 @@
                                 behavior: 'smooth',
                                 block: 'start'
                             });
+                        } else {
+                            console.warn('Target element not found:', targetId);
                         }
                     });
                 });
+
+                // Debug: Log all generated IDs
+                console.log('Generated heading IDs:',
+                    Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+                        .map(h => ({ tag: h.tagName, id: h.id, text: h.textContent }))
+                );
             })
             .catch(error => {
                 console.error('Error loading user guide:', error);
