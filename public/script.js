@@ -960,9 +960,10 @@ async function validateMandatoryProfileFields() {
         const response = await fetch('/api/user/profile', { headers });
 
         if (!response.ok) {
+            // Profile doesn't exist or error fetching - treat as missing profile
             return {
                 isValid: false,
-                message: 'Unable to check profile settings. Please try again.'
+                message: 'Please set up your profile before generating cover letters. Click "Profile Settings" to add your Full Name, Email, and Phone Number.'
             };
         }
 
@@ -986,16 +987,17 @@ async function validateMandatoryProfileFields() {
         if (missingFields.length > 0) {
             return {
                 isValid: false,
-                message: `Please complete your profile before generating cover letters. Missing required fields: ${missingFields.join(', ')}. Go to "Profile Settings" to fill in these details.`
+                message: `Please complete your profile before generating cover letters. Missing required fields: ${missingFields.join(', ')}. Click "Profile Settings" to fill in these details.`
             };
         }
 
         return { isValid: true };
     } catch (error) {
         console.error('Error validating profile fields:', error);
+        // Network error or other issue - be clear about what to do
         return {
             isValid: false,
-            message: 'Unable to check profile settings. Please try again.'
+            message: 'Please set up your profile before generating cover letters. Click "Profile Settings" to add your Full Name, Email, and Phone Number.'
         };
     }
 }
