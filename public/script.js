@@ -1042,13 +1042,13 @@ async function loadProfileSettings() {
             document.getElementById('profile-linkedin').value = profile.linkedin_url || '';
 
             // Set header template
-            const templateRadio = document.querySelector(`input[name="header-template"][value="${profile.header_template}"]`);
+            const templateRadio = document.querySelector(`input[name="header-template"][value="${profile.header_template || 'center'}"]`);
             if (templateRadio) {
                 templateRadio.checked = true;
             }
 
             // Set header color
-            const colorRadio = document.querySelector(`input[name="header-color"][value="${profile.header_color}"]`);
+            const colorRadio = document.querySelector(`input[name="header-color"][value="${profile.header_color || '#000000'}"]`);
             if (colorRadio) {
                 colorRadio.checked = true;
             }
@@ -1081,11 +1081,33 @@ async function loadProfileSettings() {
             // Store initial settings and reset save button
             storeInitialProfileSettings();
             updateSaveButtonState();
+        } else {
+            // Profile doesn't exist yet (first-time user) - set up defaults
+            console.log('📝 First-time user - setting up default profile');
+
+            // Populate with defaults
+            document.getElementById('profile-fullname').value = '';
+            document.getElementById('profile-credentials').value = '';
+            document.getElementById('profile-city').value = '';
+            document.getElementById('profile-email').value = currentUser?.email || '';
+            document.getElementById('profile-phone').value = '';
+            document.getElementById('profile-linkedin').value = '';
+
+            // Set default template and color (already checked in HTML)
+            // Update preview with defaults
+            updateHeaderPreview();
+
+            // Store initial settings as empty - any input will trigger save button
+            storeInitialProfileSettings();
+            updateSaveButtonState();
         }
     } catch (error) {
         console.error('Error loading profile settings:', error);
-        // Still populate email even if profile fetch fails
+        // Still populate email and set up for first-time user
         document.getElementById('profile-email').value = currentUser?.email || '';
+        // Store initial settings so button can be enabled
+        storeInitialProfileSettings();
+        updateSaveButtonState();
     }
 }
 

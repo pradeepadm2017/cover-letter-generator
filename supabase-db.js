@@ -148,6 +148,69 @@ const userOps = {
     } else {
       throw new Error('Invalid promo code');
     }
+  },
+
+  // Get user profile header settings
+  getProfile: async (userId) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name, credentials, city, phone, linkedin_url, header_template, header_color, header_font, header_font_size, body_font, body_font_size, page_border')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error getting profile:', error);
+      return null;
+    }
+
+    // Return profile with defaults if fields are null
+    return {
+      full_name: data.full_name || '',
+      credentials: data.credentials || '',
+      city: data.city || '',
+      phone: data.phone || '',
+      linkedin_url: data.linkedin_url || '',
+      header_template: data.header_template || 'none',
+      header_color: data.header_color || '#000000',
+      header_font: data.header_font || 'Calibri',
+      header_font_size: data.header_font_size || 16,
+      body_font: data.body_font || 'Calibri',
+      body_font_size: data.body_font_size || 12,
+      page_border: data.page_border || 'narrow'
+    };
+  },
+
+  // Update user profile header settings
+  updateProfile: async (userId, profileData) => {
+    // Use upsert to insert if doesn't exist or update if it does
+    const { data, error} = await supabase
+      .from('profiles')
+      .upsert({
+        id: userId, // Must include id for upsert
+        full_name: profileData.full_name || null,
+        credentials: profileData.credentials || null,
+        city: profileData.city || null,
+        phone: profileData.phone || null,
+        linkedin_url: profileData.linkedin_url || null,
+        header_template: profileData.header_template || 'center',
+        header_color: profileData.header_color || '#000000',
+        header_font: profileData.header_font || 'Calibri',
+        header_font_size: profileData.header_font_size || 16,
+        body_font: profileData.body_font || 'Calibri',
+        body_font_size: profileData.body_font_size || 12,
+        page_border: profileData.page_border || 'narrow'
+      }, {
+        onConflict: 'id' // Specify which column is the unique constraint
+      })
+      .select('full_name, credentials, city, phone, linkedin_url, header_template, header_color, header_font, header_font_size, body_font, body_font_size, page_border')
+      .single();
+
+    if (error) {
+      console.error('Error updating/creating profile:', error);
+      throw error;
+    }
+
+    return data;
   }
 };
 
@@ -273,8 +336,32 @@ const analyticsOps = {
   },
 
   // Track a cover letter generation attempt
-  trackGenerationAttempt: async (userId, jobUrl, isManual, success, errorMessage = null, timeMs = null) => {
+  trackGenerationAttempt: async (userId, jobUrl, isManual, success, errorMessage = null, timeMs = null, tokenData = {}) => {
     try {
+      // Extract token data with defaults
+      const {
+        extractionInput = 0,
+        extractionOutput = 0,
+        generationInput = 0,
+        generationOutput = 0,
+        retryInput = 0,
+        retryOutput = 0
+      } = tokenData;
+
+      // Calculate costs using pricing:
+      // GPT-4o-mini: $0.15/M input, $0.60/M output
+      // Claude Haiku 3.5: $0.80/M input, $4.00/M output
+
+      const extractionCost = (extractionInput * 0.15 / 1000000) + (extractionOutput * 0.60 / 1000000);
+      const generationCost = (generationInput * 0.80 / 1000000) + (generationOutput * 4.00 / 1000000);
+      const retryCost = (retryInput * 0.80 / 1000000) + (retryOutput * 4.00 / 1000000);
+      const totalCost = extractionCost + generationCost + retryCost;
+
+      // Calculate aggregate tokens for backward compatibility
+      const totalInputTokens = extractionInput + generationInput + retryInput;
+      const totalOutputTokens = extractionOutput + generationOutput + retryOutput;
+      const totalTokens = totalInputTokens + totalOutputTokens;
+
       const { error } = await supabase
         .from('generation_analytics')
         .insert({
@@ -283,11 +370,30 @@ const analyticsOps = {
           is_manual_paste: isManual,
           success: success,
           error_message: errorMessage,
-          generation_time_ms: timeMs
+          generation_time_ms: timeMs,
+          // Model-specific tokens
+          extraction_input_tokens: extractionInput,
+          extraction_output_tokens: extractionOutput,
+          generation_input_tokens: generationInput,
+          generation_output_tokens: generationOutput,
+          retry_input_tokens: retryInput,
+          retry_output_tokens: retryOutput,
+          // Costs
+          extraction_cost: extractionCost,
+          generation_cost: generationCost,
+          retry_cost: retryCost,
+          total_cost: totalCost,
+          // Aggregate tokens (for backward compatibility)
+          input_tokens: totalInputTokens,
+          output_tokens: totalOutputTokens,
+          total_tokens: totalTokens
         });
 
       if (error) {
         console.error('Error tracking generation attempt:', error);
+      } else {
+        // Log cost summary
+        console.log(`💰 Cost Summary - Extraction: $${extractionCost.toFixed(6)}, Generation: $${generationCost.toFixed(6)}, Retry: $${retryCost.toFixed(6)}, Total: $${totalCost.toFixed(6)}`);
       }
     } catch (err) {
       console.error('Error tracking generation attempt:', err);
