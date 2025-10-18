@@ -1724,6 +1724,8 @@ select.profile-input {
     font-size: 15px;
     line-height: 1.6;
     margin: 0;
+    text-align: left;
+    white-space: pre-line;
 }
 
 .alert-modal-footer {

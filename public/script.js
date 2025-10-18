@@ -292,7 +292,8 @@ function showAlertModal(title, message, buttonText = 'OK', onButtonClick = null)
     const modalButton = document.getElementById('alert-modal-button');
 
     modalTitle.textContent = title;
-    modalMessage.textContent = message;
+    // Convert newlines to <br> tags for multiline messages
+    modalMessage.innerHTML = message.replace(/\n/g, '<br>');
     modalButton.textContent = buttonText;
 
     // Set up button click handler
@@ -1146,11 +1147,9 @@ async function saveProfileSettings() {
         // Client-side validation
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (profileData.email && !emailPattern.test(profileData.email)) {
-            saveMessage.textContent = 'Invalid email format. Please enter a valid email address.';
-            saveMessage.className = 'profile-save-message error';
-            saveMessage.classList.remove('hidden');
             saveButton.disabled = false;
             saveButton.textContent = originalButtonText;
+            showAlertModal('Invalid Email', 'Please enter a valid email address (e.g., john@example.com)');
             return;
         }
 
@@ -1158,22 +1157,18 @@ async function saveProfileSettings() {
         if (profileData.phone) {
             const cleanPhone = profileData.phone.replace(/[\s\-\(\)\.]/g, '');
             if (!phonePattern.test(profileData.phone) || cleanPhone.length < 10 || cleanPhone.length > 15) {
-                saveMessage.textContent = 'Invalid phone number. Must be 10-15 digits and can contain spaces, dashes, or parentheses.';
-                saveMessage.className = 'profile-save-message error';
-                saveMessage.classList.remove('hidden');
                 saveButton.disabled = false;
                 saveButton.textContent = originalButtonText;
+                showAlertModal('Invalid Phone Number', 'Phone number must be 10-15 digits and can contain spaces, dashes, or parentheses.\n\nExamples:\n• (555) 123-4567\n• 555-123-4567\n• +1 555 123 4567');
                 return;
             }
         }
 
         const linkedinPattern = /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|pub|profile)\/[\w\-]+\/?$/i;
         if (profileData.linkedin_url && !linkedinPattern.test(profileData.linkedin_url)) {
-            saveMessage.textContent = 'Invalid LinkedIn URL. Must be in format: https://www.linkedin.com/in/your-profile';
-            saveMessage.className = 'profile-save-message error';
-            saveMessage.classList.remove('hidden');
             saveButton.disabled = false;
             saveButton.textContent = originalButtonText;
+            showAlertModal('Invalid LinkedIn URL', 'LinkedIn URL must be in the format:\nhttps://www.linkedin.com/in/your-profile\n\nExample:\nhttps://www.linkedin.com/in/john-doe');
             return;
         }
 
@@ -1202,26 +1197,25 @@ async function saveProfileSettings() {
         } else {
             console.error('Profile save failed:', response.status, data);
             const errorMessage = data.error || 'Failed to save profile settings. Please try again.';
-            saveMessage.textContent = errorMessage;
-            saveMessage.className = 'profile-save-message error';
-            saveMessage.classList.remove('hidden');
 
             // Re-enable button on error
             saveButton.disabled = false;
             saveButton.textContent = originalButtonText;
             updateSaveButtonState(); // Restore proper button state
+
+            // Show error in alert modal
+            showAlertModal('Validation Error', errorMessage);
         }
     } catch (error) {
         console.error('Error saving profile settings:', error);
-        const saveMessage = document.getElementById('profile-save-message');
-        saveMessage.textContent = 'Network error. Please check your connection and try again.';
-        saveMessage.className = 'profile-save-message error';
-        saveMessage.classList.remove('hidden');
 
         // Re-enable button on error
         saveButton.disabled = false;
         saveButton.textContent = originalButtonText;
         updateSaveButtonState(); // Restore proper button state
+
+        // Show error in alert modal
+        showAlertModal('Network Error', 'Unable to save profile settings. Please check your connection and try again.');
     }
 }
 
