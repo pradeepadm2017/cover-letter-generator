@@ -1140,24 +1140,28 @@ async function saveProfileSettings() {
             // Close modal immediately
             toggleProfileSettingsModal();
         } else {
-            saveMessage.textContent = data.error || 'Failed to save profile settings';
+            console.error('Profile save failed:', response.status, data);
+            const errorMessage = data.error || 'Failed to save profile settings. Please try again.';
+            saveMessage.textContent = errorMessage;
             saveMessage.className = 'profile-save-message error';
             saveMessage.classList.remove('hidden');
 
             // Re-enable button on error
             saveButton.disabled = false;
             saveButton.textContent = originalButtonText;
+            updateSaveButtonState(); // Restore proper button state
         }
     } catch (error) {
         console.error('Error saving profile settings:', error);
         const saveMessage = document.getElementById('profile-save-message');
-        saveMessage.textContent = 'Failed to save profile settings';
+        saveMessage.textContent = 'Network error. Please check your connection and try again.';
         saveMessage.className = 'profile-save-message error';
         saveMessage.classList.remove('hidden');
 
         // Re-enable button on error
         saveButton.disabled = false;
         saveButton.textContent = originalButtonText;
+        updateSaveButtonState(); // Restore proper button state
     }
 }
 
@@ -1191,8 +1195,9 @@ function updateSaveButtonState() {
     if (!saveButton) return;
 
     if (!initialProfileSettings) {
-        // If we don't have initial settings yet, button should be grey
+        // If we don't have initial settings yet, button should be grey and disabled
         saveButton.classList.remove('has-changes');
+        saveButton.disabled = true;
         return;
     }
 
@@ -1205,8 +1210,10 @@ function updateSaveButtonState() {
 
     if (hasChanges) {
         saveButton.classList.add('has-changes');
+        saveButton.disabled = false;
     } else {
         saveButton.classList.remove('has-changes');
+        saveButton.disabled = true;
     }
 }
 
