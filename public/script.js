@@ -1143,6 +1143,40 @@ async function saveProfileSettings() {
             page_border: document.querySelector('input[name="page-border"]:checked').value
         };
 
+        // Client-side validation
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (profileData.email && !emailPattern.test(profileData.email)) {
+            saveMessage.textContent = 'Invalid email format. Please enter a valid email address.';
+            saveMessage.className = 'profile-save-message error';
+            saveMessage.classList.remove('hidden');
+            saveButton.disabled = false;
+            saveButton.textContent = originalButtonText;
+            return;
+        }
+
+        const phonePattern = /^[\d\s\-\(\)\+\.]+$/;
+        if (profileData.phone) {
+            const cleanPhone = profileData.phone.replace(/[\s\-\(\)\.]/g, '');
+            if (!phonePattern.test(profileData.phone) || cleanPhone.length < 10 || cleanPhone.length > 15) {
+                saveMessage.textContent = 'Invalid phone number. Must be 10-15 digits and can contain spaces, dashes, or parentheses.';
+                saveMessage.className = 'profile-save-message error';
+                saveMessage.classList.remove('hidden');
+                saveButton.disabled = false;
+                saveButton.textContent = originalButtonText;
+                return;
+            }
+        }
+
+        const linkedinPattern = /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|pub|profile)\/[\w\-]+\/?$/i;
+        if (profileData.linkedin_url && !linkedinPattern.test(profileData.linkedin_url)) {
+            saveMessage.textContent = 'Invalid LinkedIn URL. Must be in format: https://www.linkedin.com/in/your-profile';
+            saveMessage.className = 'profile-save-message error';
+            saveMessage.classList.remove('hidden');
+            saveButton.disabled = false;
+            saveButton.textContent = originalButtonText;
+            return;
+        }
+
         const headers = await getAuthHeaders();
         const response = await fetch('/api/user/profile', {
             method: 'POST',

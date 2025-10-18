@@ -470,6 +470,31 @@ app.post('/api/user/profile', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ error: 'Invalid page border. Must be none or narrow.' });
     }
 
+    // Validate email format
+    if (email) {
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(email)) {
+        return res.status(400).json({ error: 'Invalid email format. Please enter a valid email address.' });
+      }
+    }
+
+    // Validate phone number (allow various formats)
+    if (phone && phone.trim()) {
+      const phonePattern = /^[\d\s\-\(\)\+\.]+$/;
+      const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, '');
+      if (!phonePattern.test(phone) || cleanPhone.length < 10 || cleanPhone.length > 15) {
+        return res.status(400).json({ error: 'Invalid phone number. Must be 10-15 digits and can contain spaces, dashes, or parentheses.' });
+      }
+    }
+
+    // Validate LinkedIn URL format
+    if (linkedin_url && linkedin_url.trim()) {
+      const linkedinPattern = /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|pub|profile)\/[\w\-]+\/?$/i;
+      if (!linkedinPattern.test(linkedin_url)) {
+        return res.status(400).json({ error: 'Invalid LinkedIn URL. Must be in format: https://www.linkedin.com/in/your-profile' });
+      }
+    }
+
     const profileData = {
       email: email || req.user.email || '',
       full_name: full_name || '',
@@ -745,7 +770,17 @@ async function extractJobTitleAndCompany(jobDescription) {
 }
 
 // Helper function to extract candidate name from resume
-function extractCandidateName(resume) {
+function extractCandidateName(resume, userProfile = null) {
+  // First priority: Use profile full_name if available
+  if (userProfile && userProfile.full_name) {
+    let nameWithCredentials = userProfile.full_name.trim();
+    if (userProfile.credentials) {
+      nameWithCredentials += ', ' + userProfile.credentials.trim();
+    }
+    console.log(`✅ Using profile name: "${nameWithCredentials}"`);
+    return nameWithCredentials;
+  }
+
   const lines = resume.split('\n');
 
   console.log('🔍 Extracting name from resume. First 5 lines:');
@@ -805,8 +840,8 @@ function extractCandidateName(resume) {
     }
   }
 
-  console.log('   ❌ No name found, using fallback');
-  return 'Pradeep Rajana'; // Better fallback
+  console.log('   ❌ No name found in resume or profile');
+  return '[Your Name]'; // Generic fallback instead of hardcoded name
 }
 
 // Helper function to extract company name and job title for filename
@@ -1268,7 +1303,7 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
           candidateName = cachedResume.candidateName;
           console.log(`💾 Using cached candidate name: ${candidateName}`);
         } else {
-          candidateName = extractCandidateName(resume);
+          candidateName = extractCandidateName(resume, req.user);
           setCachedResume(req.user.id, resume, candidateName);
         }
 
