@@ -12,20 +12,33 @@
         <header>
             <div class="header-content">
                 <div class="header-logo">
-                    <img src="my-design-page-1.png" alt="FastCoverLetters" class="logo-full">
+                    <img src="my-design-page-1.png" alt="FastCoverLetters" class="logo-compact">
                 </div>
                 <div class="header-spacer"></div>
-                <div class="user-menu">
-                    <div class="user-info">
-                        <span id="user-email">Loading...</span>
-                        <span id="user-tier" class="tier-badge">Free</span>
-                        <span id="usage-counter" class="usage-counter hidden">0/10 cover letters left</span>
+                <div class="header-right">
+                    <span id="usage-counter" class="usage-counter hidden">0/10 cover letters left</span>
+                    <div class="user-menu-wrapper">
+                        <button type="button" class="user-menu-button" onclick="toggleUserDropdown()" id="user-menu-button">
+                            <span class="user-icon">👤</span>
+                            <span class="dropdown-arrow">▼</span>
+                        </button>
+                        <div class="user-dropdown hidden" id="user-dropdown">
+                            <div class="dropdown-header">
+                                <div class="dropdown-email" id="dropdown-email">Loading...</div>
+                                <span id="dropdown-tier" class="tier-badge">Free</span>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <button type="button" class="dropdown-item" onclick="toggleProfileSettingsModal(); toggleUserDropdown();">
+                                <span class="dropdown-icon">⚙️</span>
+                                Profile Settings
+                            </button>
+                            <button type="button" class="dropdown-item" onclick="togglePromoCodeModal(); toggleUserDropdown();">
+                                <span class="dropdown-icon">🎟️</span>
+                                Use Promo Code
+                            </button>
+                        </div>
                     </div>
-                    <div class="user-actions">
-                        <button type="button" class="btn-secondary" onclick="toggleProfileSettingsModal()">Profile Settings</button>
-                        <button type="button" class="btn-secondary" onclick="togglePromoCodeModal()">Use Promo Code</button>
-                        <button type="button" class="btn-logout" onclick="logout()">Logout</button>
-                    </div>
+                    <button type="button" class="btn-logout" onclick="logout()">Logout</button>
                 </div>
             </div>
         </header>

@@ -78,14 +78,32 @@ async function loadUserInfo() {
         const data = await response.json();
 
         if (data.authenticated) {
-            document.getElementById('user-email').textContent = data.user.email;
-            document.getElementById('user-tier').textContent = data.user.tier.charAt(0).toUpperCase() + data.user.tier.slice(1);
+            const tierFormatted = data.user.tier.charAt(0).toUpperCase() + data.user.tier.slice(1);
 
-            // Update tier badge color
-            const tierBadge = document.getElementById('user-tier');
-            tierBadge.className = 'tier-badge';
-            if (data.user.tier !== 'free') {
-                tierBadge.classList.add('tier-paid');
+            // Update dropdown email and tier (new header design)
+            const dropdownEmail = document.getElementById('dropdown-email');
+            const dropdownTier = document.getElementById('dropdown-tier');
+            if (dropdownEmail) dropdownEmail.textContent = data.user.email;
+            if (dropdownTier) dropdownTier.textContent = tierFormatted;
+
+            // Update tier badge color in dropdown
+            if (dropdownTier) {
+                dropdownTier.className = 'tier-badge';
+                if (data.user.tier !== 'free') {
+                    dropdownTier.classList.add('tier-paid');
+                }
+            }
+
+            // Keep old header elements for backwards compatibility (if they exist)
+            const userEmail = document.getElementById('user-email');
+            const userTier = document.getElementById('user-tier');
+            if (userEmail) userEmail.textContent = data.user.email;
+            if (userTier) {
+                userTier.textContent = tierFormatted;
+                userTier.className = 'tier-badge';
+                if (data.user.tier !== 'free') {
+                    userTier.classList.add('tier-paid');
+                }
             }
 
             // Load and display usage counter for free tier users
@@ -944,6 +962,29 @@ function toggleSubscriptionModal() {
     const modal = document.getElementById('subscription-modal');
     modal.classList.toggle('hidden');
 }
+
+// Toggle User Dropdown Menu
+function toggleUserDropdown() {
+    const dropdown = document.getElementById('user-dropdown');
+    const button = document.getElementById('user-menu-button');
+
+    dropdown.classList.toggle('hidden');
+    button.classList.toggle('active');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('user-dropdown');
+    const button = document.getElementById('user-menu-button');
+
+    if (dropdown && button && !dropdown.classList.contains('hidden')) {
+        // Check if click is outside both dropdown and button
+        if (!dropdown.contains(event.target) && !button.contains(event.target)) {
+            dropdown.classList.add('hidden');
+            button.classList.remove('active');
+        }
+    }
+});
 
 // Toggle Promo Code Modal
 function togglePromoCodeModal() {

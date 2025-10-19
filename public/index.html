@@ -60,6 +60,11 @@
             <div class="nav-logo">
                 <img src="my-design-page-1.png" alt="FastCoverLetters" class="logo-full">
             </div>
+            <button class="hamburger-menu" onclick="toggleMobileMenu()" aria-label="Menu">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
             <div class="nav-links">
                 <a href="#features">Features</a>
                 <a href="#pricing">Pricing</a>
@@ -68,30 +73,73 @@
         </div>
     </nav>
 
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobile-menu-overlay" onclick="toggleMobileMenu()"></div>
+    <div class="mobile-menu" id="mobile-menu">
+        <div class="mobile-menu-header">
+            <img src="my-design-page-1.png" alt="FastCoverLetters" class="mobile-menu-logo">
+            <button class="mobile-menu-close" onclick="toggleMobileMenu()" aria-label="Close Menu">&times;</button>
+        </div>
+        <div class="mobile-menu-links">
+            <a href="#features" onclick="toggleMobileMenu()">Features</a>
+            <a href="#pricing" onclick="toggleMobileMenu()">Pricing</a>
+            <button onclick="showAuthModal(); toggleMobileMenu();" class="btn-login-mobile">Login</button>
+        </div>
+    </div>
+
     <section class="hero">
-        <div class="hero-content">
-            <h1 class="hero-title">Create 20 Custom Cover Letters in 60 Seconds</h1>
-            <p class="hero-subtitle">The job market is brutal—you need 300+ applications to land an offer. Generate perfectly formatted, job-specific cover letters in bulk and apply faster than ever.</p>
-            <div class="hero-stats">
-                <div class="stat">
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1 class="hero-title">Create 20 Custom Cover Letters in 60 Seconds</h1>
+                <p class="hero-subtitle">The job market is brutal—you need 300+ applications to land an offer. Generate perfectly formatted, job-specific cover letters in bulk and apply faster than ever.</p>
+                <div class="hero-cta">
+                    <button onclick="showAuthModal()" class="btn-primary btn-large">
+                        Start Creating Free
+                    </button>
+                </div>
+                <p class="hero-note">✓ 10 free cover letters • No credit card required</p>
+            </div>
+            <div class="hero-visual">
+                <div class="hero-demo-card">
+                    <div class="demo-card-header">
+                        <div class="demo-dot"></div>
+                        <div class="demo-dot"></div>
+                        <div class="demo-dot"></div>
+                    </div>
+                    <div class="demo-card-content">
+                        <div class="demo-line demo-line-title"></div>
+                        <div class="demo-line demo-line-sm"></div>
+                        <div class="demo-line demo-line-md"></div>
+                        <div class="demo-line demo-line-lg"></div>
+                        <div class="demo-line demo-line-md"></div>
+                        <div class="demo-line demo-line-sm"></div>
+                        <div class="demo-checkmark">✓</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section (moved from hero) -->
+    <section class="stats-section">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">⚡</div>
                     <div class="stat-number">20+</div>
                     <div class="stat-label">Cover letters per minute</div>
                 </div>
-                <div class="stat">
+                <div class="stat-card">
+                    <div class="stat-icon">🚀</div>
                     <div class="stat-number">10x</div>
                     <div class="stat-label">Faster than ChatGPT</div>
                 </div>
-                <div class="stat">
+                <div class="stat-card">
+                    <div class="stat-icon">✨</div>
                     <div class="stat-number">100%</div>
                     <div class="stat-label">Formatted & ready</div>
                 </div>
             </div>
-            <div class="hero-cta">
-                <button onclick="showAuthModal()" class="btn-primary btn-large">
-                    Start Creating Free
-                </button>
-            </div>
-            <p class="hero-note">✓ 10 free cover letters • No credit card required</p>
         </div>
     </section>
 
@@ -343,6 +391,24 @@
             document.getElementById('auth-error').classList.add('hidden');
             document.getElementById('auth-success').classList.add('hidden');
             document.getElementById('auth-email').value = '';
+        }
+
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            const overlay = document.getElementById('mobile-menu-overlay');
+            const hamburger = document.querySelector('.hamburger-menu');
+
+            mobileMenu.classList.toggle('active');
+            overlay.classList.toggle('active');
+            hamburger.classList.toggle('active');
+
+            // Prevent body scroll when menu is open
+            if (mobileMenu.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
         }
 
         // Sign in with Google
