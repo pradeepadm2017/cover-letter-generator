@@ -1816,12 +1816,24 @@ textarea.success:focus {
     border-radius: 10px;
     padding: 20px;
     margin-bottom: var(--space-3);
-    transition: all 0.3s;
 }
 
-.manual-job-card:hover {
+.manual-job-title,
+.manual-job-company {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid var(--gray-200);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: var(--text-sm);
+    transition: all 0.2s ease;
+}
+
+.manual-job-title:focus,
+.manual-job-company:focus {
+    outline: none;
     border-color: var(--primary);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--focus-ring);
 }
 
 #add-manual-btn {
