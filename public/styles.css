@@ -515,6 +515,22 @@ button {
     color: white;
 }
 
+.usage-counter {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background-color: #dbeafe;
+    color: #1e40af;
+    margin-left: 8px;
+}
+
+.usage-counter.low-usage {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
 .btn-secondary {
     padding: 8px 16px;
     background-color: #2563eb;
@@ -1752,6 +1768,298 @@ select.profile-input {
     background-color: #b91c1c;
 }
 
+/* ===== RESUME MANAGER STYLES ===== */
+
+/* Saved Resume Tab */
+.saved-resume-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    background-color: #f9fafb;
+    border-radius: 8px;
+}
+
+.saved-resume-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.saved-resume-select {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 15px;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.saved-resume-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.manage-resumes-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.resume-info-text {
+    margin: 0;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.resume-info-text a {
+    color: #3b82f6;
+    text-decoration: none;
+}
+
+.resume-info-text a:hover {
+    text-decoration: underline;
+}
+
+/* Manage Resumes Modal */
+.manage-resumes-modal-content {
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-divider {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 30px 0;
+}
+
+.upload-resume-section h3,
+.existing-resumes-section h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 16px;
+}
+
+.upload-success-message {
+    padding: 12px 16px;
+    background-color: #d1fae5;
+    border: 1px solid #10b981;
+    border-radius: 8px;
+    color: #047857;
+    font-size: 14px;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.upload-success-message.hidden {
+    display: none;
+}
+
+.upload-error-message {
+    padding: 12px 16px;
+    background-color: #fee2e2;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    color: #dc2626;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.upload-error-message.hidden {
+    display: none;
+}
+
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.upload-form .btn-primary {
+    background-color: #9ca3af;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.upload-form .btn-primary.file-selected {
+    background-color: #2563eb;
+}
+
+.upload-form .btn-primary.file-selected:hover {
+    background-color: #1d4ed8;
+}
+
+.upload-form .btn-primary:hover {
+    background-color: #6b7280;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.upload-resume-label {
+    display: inline-block;
+    padding: 10px 20px;
+    cursor: pointer;
+    align-self: flex-start;
+}
+
+.file-name-display {
+    font-size: 14px;
+    color: #6b7280;
+    padding: 8px 0;
+}
+
+.info-text {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 8px 0 0 0;
+}
+
+.info-text-burgundy {
+    color: #9f1239;
+    font-weight: 600;
+}
+
+/* Resumes List */
+.resumes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.no-resumes-text,
+.loading-text {
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+    padding: 20px;
+}
+
+.resume-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.resume-item:hover {
+    background-color: #f3f4f6;
+}
+
+.resume-info {
+    flex: 1;
+}
+
+.resume-nickname {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.default-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background-color: #fef3c7;
+    color: #92400e;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.resume-details {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.resume-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-icon {
+    padding: 8px 12px;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background-color: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.btn-icon.btn-delete:hover {
+    background-color: #fee2e2;
+    border-color: #ef4444;
+}
+
+/* Resume Action Messages */
+.resume-action-message {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.resume-action-message.success {
+    background-color: #d1fae5;
+    border: 1px solid #10b981;
+    color: #047857;
+}
+
+.resume-action-message.error {
+    background-color: #fee2e2;
+    border: 1px solid #ef4444;
+    color: #dc2626;
+}
+
+.resume-action-message.hidden {
+    display: none;
+}
+
+/* Modal Footer */
+.modal-footer {
+    padding: 20px 30px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    background-color: #f9fafb;
+}
+
+.modal-footer .btn-secondary {
+    padding: 10px 30px;
+}
+
 /* Responsive Design for Profile Modal */
 @media (max-width: 768px) {
     .profile-settings-content {
@@ -1780,5 +2088,20 @@ select.profile-input {
     
     .settings-actions button {
         width: 100%;
+    }
+
+    /* Resume controls responsive */
+    .saved-resume-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .manage-resumes-btn {
+        width: 100%;
+    }
+
+    .manage-resumes-modal-content {
+        max-width: 100%;
+        margin: 20px;
     }
 }

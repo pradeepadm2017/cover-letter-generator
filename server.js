@@ -14,7 +14,7 @@ const multer = require('multer');
 let pdfParse = null;
 const mammoth = require('mammoth');
 const supabase = require('./supabase-client');
-const { userOps, usageOps, analyticsOps } = require('./supabase-db');
+const { userOps, usageOps, analyticsOps, resumeOps } = require('./supabase-db');
 
 // Import advanced scraping service (feature-flagged)
 const scrapingService = require('./scraping-service');
@@ -523,6 +523,186 @@ app.post('/api/user/profile', ensureAuthenticated, async (req, res) => {
     console.error('❌ Error updating user profile:', error);
     console.error('Error details:', error.message, error.code);
     res.status(500).json({ error: 'Failed to update profile settings: ' + error.message });
+  }
+});
+
+// ===== USAGE TRACKING ENDPOINTS =====
+
+// Get current usage and limits
+app.get('/api/usage/check', ensureAuthenticated, async (req, res) => {
+  try {
+    const result = await usageOps.canGenerate(req.user.id);
+    const usage = await usageOps.getUsage(req.user.id);
+    const user = await userOps.ensureProfile(req.user.id);
+    const limit = user?.custom_monthly_limit || 10;
+
+    res.json({
+      tier: result.tier || 'free',
+      limit: limit,
+      used: usage,
+      remaining: result.remaining,
+      allowed: result.allowed
+    });
+  } catch (error) {
+    console.error('Error checking usage:', error);
+    res.status(500).json({ error: 'Failed to check usage' });
+  }
+});
+
+// ===== RESUME MANAGEMENT ENDPOINTS =====
+
+// Get all resumes for the current user
+app.get('/api/user/resumes', ensureAuthenticated, async (req, res) => {
+  try {
+    const resumes = await resumeOps.list(req.user.id);
+    res.json(resumes);
+  } catch (error) {
+    console.error('Error fetching resumes:', error);
+    res.status(500).json({ error: 'Failed to fetch resumes' });
+  }
+});
+
+// Upload a new resume
+app.post('/api/user/resumes', ensureAuthenticated, upload.single('resume'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { nickname } = req.body;
+    if (!nickname || !nickname.trim()) {
+      return res.status(400).json({ error: 'Nickname is required' });
+    }
+
+    const file = req.file;
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+
+    // Validate file type
+    if (!['.doc', '.docx', '.txt'].includes(fileExtension)) {
+      return res.status(400).json({
+        error: 'Invalid file type. Only DOC, DOCX, and TXT files are supported.'
+      });
+    }
+
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      return res.status(400).json({ error: 'File size exceeds 10MB limit' });
+    }
+
+    let resumeText = '';
+
+    // Extract text based on file type
+    if (fileExtension === '.txt') {
+      resumeText = file.buffer.toString('utf-8');
+    } else if (fileExtension === '.docx') {
+      const result = await mammoth.extractRawText({ buffer: file.buffer });
+      resumeText = result.value;
+    } else if (fileExtension === '.doc') {
+      // Old DOC format - try to read as text
+      resumeText = file.buffer.toString('utf-8');
+    }
+
+    if (!resumeText || !resumeText.trim()) {
+      return res.status(400).json({ error: 'Could not extract text from the resume file' });
+    }
+
+    // Create resume record
+    const resumeData = {
+      nickname: nickname.trim(),
+      file_name: file.originalname,
+      file_type: fileExtension.substring(1), // Remove the dot
+      resume_text: resumeText,
+      file_size: file.size
+    };
+
+    const newResume = await resumeOps.create(req.user.id, resumeData);
+
+    res.json({
+      success: true,
+      resume: newResume
+    });
+  } catch (error) {
+    console.error('Error uploading resume:', error);
+
+    // Check for specific error messages
+    if (error.message && error.message.includes('Maximum 10 resumes')) {
+      return res.status(400).json({ error: 'Maximum 10 resumes allowed per user' });
+    }
+    if (error.message && error.message.includes('duplicate key')) {
+      return res.status(400).json({ error: 'A resume with this nickname already exists' });
+    }
+
+    res.status(500).json({ error: 'Failed to upload resume' });
+  }
+});
+
+// Update resume (nickname or default status)
+app.put('/api/user/resumes/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nickname, is_default } = req.body;
+
+    const updates = {};
+    if (nickname !== undefined) {
+      if (!nickname.trim()) {
+        return res.status(400).json({ error: 'Nickname cannot be empty' });
+      }
+      updates.nickname = nickname.trim();
+    }
+    if (is_default !== undefined) {
+      updates.is_default = is_default;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+
+    const updatedResume = await resumeOps.update(req.user.id, id, updates);
+
+    res.json({
+      success: true,
+      resume: updatedResume
+    });
+  } catch (error) {
+    console.error('Error updating resume:', error);
+
+    if (error.message && error.message.includes('duplicate key')) {
+      return res.status(400).json({ error: 'A resume with this nickname already exists' });
+    }
+
+    res.status(500).json({ error: 'Failed to update resume' });
+  }
+});
+
+// Delete a resume
+app.delete('/api/user/resumes/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await resumeOps.delete(req.user.id, id);
+
+    res.json({
+      success: true,
+      message: 'Resume deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting resume:', error);
+    res.status(500).json({ error: 'Failed to delete resume' });
+  }
+});
+
+// Get resume text by ID (for cover letter generation)
+app.get('/api/user/resumes/:id/text', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const resumeText = await resumeOps.getText(req.user.id, id);
+
+    res.json({
+      success: true,
+      resume_text: resumeText
+    });
+  } catch (error) {
+    console.error('Error fetching resume text:', error);
+    res.status(500).json({ error: 'Failed to fetch resume text' });
   }
 });
 
@@ -1086,17 +1266,9 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
       const jobStartTime = Date.now();
       console.log(`🚀 [Job ${index + 1}/${jobUrls.length}] Starting: ${isManualJob ? 'MANUAL' : jobUrl}`);
 
-      // Check usage limits before processing each URL
-      const usageCheck = await usageOps.canGenerate(req.user.id);
-      if (!usageCheck.allowed) {
-        console.log(`⛔ [Job ${index + 1}] Usage limit reached`);
-        return {
-          jobUrl: jobUrl,
-          success: false,
-          error: 'Usage limit reached',
-          limitReached: true
-        };
-      }
+      // Reserve usage slot before generation to prevent race conditions
+      await usageOps.incrementUsage(req.user.id);
+      let usageReserved = true;
 
       try {
         let usedFallback = false;
@@ -1114,6 +1286,10 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
 
           // Validate description length
           if (jobItem.description.length < 100) {
+            // Refund usage since validation failed
+            if (usageReserved) {
+              await usageOps.decrementUsage(req.user.id);
+            }
             return {
               jobUrl: jobUrl,
               success: false,
@@ -1122,6 +1298,10 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
           }
 
           if (jobItem.description.length > 20000) {
+            // Refund usage since validation failed
+            if (usageReserved) {
+              await usageOps.decrementUsage(req.user.id);
+            }
             return {
               jobUrl: jobUrl,
               success: false,
@@ -1171,10 +1351,15 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
                 }
               );
 
+              // Refund usage since extraction failed
+              if (usageReserved) {
+                await usageOps.decrementUsage(req.user.id);
+              }
+
               return {
                 jobUrl: jobUrl,
                 success: false,
-                error: `Could not extract ${missingFields.join(' or ')} from the job description. Please provide ${missingFields.join(' and ')} manually to generate a cover letter.`
+                error: `Could not extract ${missingFields.join(' or ')} from the job description. Please check if you pasted valid job description content, or provide ${missingFields.join(' and ')} manually to generate a cover letter.`
               };
             }
 
@@ -2106,7 +2291,7 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
         const jobDuration = ((Date.now() - jobStartTime) / 1000).toFixed(2);
         console.log(`✅ [Job ${index + 1}] Completed in ${jobDuration}s`);
 
-        await usageOps.incrementUsage(req.user.id);
+        // Usage was already incremented at the start to reserve the slot
 
         // Track successful generation with token data
         console.log(`📊 Total tokens for job ${index + 1} - Input: ${totalInputTokens}, Output: ${totalOutputTokens}, Total: ${totalTokens}`);
@@ -2143,6 +2328,11 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
         const jobDuration = ((Date.now() - jobStartTime) / 1000).toFixed(2);
         console.error(`❌ [Job ${index + 1}] Failed after ${jobDuration}s:`, error.message);
 
+        // Refund the usage slot since generation failed
+        if (usageReserved) {
+          await usageOps.decrementUsage(req.user.id);
+        }
+
         // Track failed generation
         await analyticsOps.trackGenerationAttempt(
           req.user.id,
@@ -2173,10 +2363,23 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
 
     // Process jobs in batches
     for (let batchStart = 0; batchStart < jobUrls.length; batchStart += BATCH_SIZE) {
-      const batchEnd = Math.min(batchStart + BATCH_SIZE, jobUrls.length);
+      // Check usage limit before processing this batch
+      const usageCheck = await usageOps.canGenerate(req.user.id);
+      if (!usageCheck.allowed) {
+        console.log(`⛔ Usage limit reached before batch. Stopping processing.`);
+        return res.status(403).json({
+          error: 'Usage limit reached',
+          message: 'Free tier limit reached. Use a promo code to extend your limit. If you don\'t have a promo code, email pradeepadm2017@gmail.com to get one.',
+          results: results
+        });
+      }
+
+      // Limit batch size to remaining quota to prevent race conditions
+      const maxBatchSize = Math.min(BATCH_SIZE, usageCheck.remaining);
+      const batchEnd = Math.min(batchStart + maxBatchSize, jobUrls.length);
       const batch = jobUrls.slice(batchStart, batchEnd);
 
-      console.log(`\n📦 Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: Jobs ${batchStart + 1}-${batchEnd}`);
+      console.log(`\n📦 Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: Jobs ${batchStart + 1}-${batchEnd} (Limited to ${usageCheck.remaining} remaining)`);
       const batchStartTime = Date.now();
 
       // Process batch in parallel
@@ -2196,7 +2399,7 @@ CRITICAL: EXACTLY 4 paragraphs, 3-4 sentences each, 300-350 words TOTAL. Count y
             console.log('⛔ Usage limit reached - stopping processing');
             return res.status(403).json({
               error: 'Usage limit reached',
-              message: 'You have reached your monthly limit.',
+              message: 'Free tier limit reached. Use a promo code to extend your limit. If you don\'t have a promo code, email pradeepadm2017@gmail.com to get one.',
               results: results
             });
           }

@@ -53,7 +53,7 @@ const userOps = {
           id: authUser.id,
           email: authUser.email,
           subscription_tier: 'free',
-          custom_monthly_limit: null // Will use default 3
+          custom_monthly_limit: null // Will use default 10
         })
         .select()
         .single();
@@ -120,34 +120,57 @@ const userOps = {
       throw new Error('Promo code already used');
     }
 
-    // Validate promo code
+    // Validate promo code and determine limit
+    let customLimit;
+    let promoMessage;
+    let promoExpiryDate = null;
+
     if (promoCode === 'FIRST999') {
-      // Add promo code to used list and set custom limit to 30
-      const updatedCodes = [...usedCodes, promoCode];
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          promo_codes_used: updatedCodes,
-          custom_monthly_limit: 30
-        })
-        .eq('id', userId)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error applying promo code:', error);
-        throw error;
-      }
-
-      return {
-        success: true,
-        newLimit: 30,
-        message: 'Promo code applied! You now have 30 cover letters for this month.'
-      };
+      customLimit = 30;
+      promoMessage = 'Promo code applied! You now have 30 cover letters for this month.';
+      // FIRST999 is permanent (no expiry)
+    } else if (promoCode === 'ALLTHEBEST100') {
+      customLimit = 100;
+      // Set expiry to 30 days from now
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
+      promoExpiryDate = expiryDate.toISOString();
+      promoMessage = `Promo code applied! You now have 100 cover letters for the next 30 days (until ${expiryDate.toLocaleDateString()}).`;
     } else {
       throw new Error('Invalid promo code');
     }
+
+    // Add promo code to used list and set custom limit
+    const updatedCodes = [...usedCodes, promoCode];
+
+    const updateData = {
+      promo_codes_used: updatedCodes,
+      custom_monthly_limit: customLimit
+    };
+
+    // Add expiry date if applicable
+    if (promoExpiryDate) {
+      updateData.promo_expiry_date = promoExpiryDate;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error applying promo code:', error);
+      throw error;
+    }
+
+    return {
+      success: true,
+      newLimit: customLimit,
+      expiryDate: promoExpiryDate,
+      message: promoMessage
+    };
   },
 
   // Get user profile header settings
@@ -171,7 +194,7 @@ const userOps = {
       city: data.city || '',
       phone: data.phone || '',
       linkedin_url: data.linkedin_url || '',
-      header_template: data.header_template || 'none',
+      header_template: data.header_template || 'center',
       header_color: data.header_color || '#000000',
       header_font: data.header_font || 'Calibri',
       header_font_size: data.header_font_size || 16,
@@ -259,7 +282,58 @@ const usageOps = {
   incrementUsage: async (userId) => {
     const month = usageOps.getCurrentMonth();
 
-    // Try to update existing record
+    // Use atomic increment with raw SQL to avoid race conditions
+    // First try to insert if not exists, then increment
+    const { data, error } = await supabase.rpc('increment_usage', {
+      p_user_id: userId,
+      p_month: month
+    });
+
+    if (error) {
+      // If RPC doesn't exist, fall back to manual approach with upsert
+      console.log('RPC not available, using upsert approach');
+
+      const { error: upsertError } = await supabase
+        .from('usage')
+        .upsert(
+          { user_id: userId, month: month, count: 1 },
+          {
+            onConflict: 'user_id,month',
+            ignoreDuplicates: false
+          }
+        );
+
+      if (upsertError) {
+        console.error('Error incrementing usage with upsert:', upsertError);
+
+        // Last resort: try the old approach
+        const { data: existing } = await supabase
+          .from('usage')
+          .select('id, count')
+          .eq('user_id', userId)
+          .eq('month', month)
+          .single();
+
+        if (existing) {
+          await supabase
+            .from('usage')
+            .update({ count: existing.count + 1 })
+            .eq('id', existing.id);
+        } else {
+          await supabase
+            .from('usage')
+            .insert({ user_id: userId, month: month, count: 1 });
+        }
+      }
+    }
+
+    return usageOps.getUsage(userId);
+  },
+
+  decrementUsage: async (userId) => {
+    const month = usageOps.getCurrentMonth();
+
+    // Decrement usage (used when a job fails after reserving a slot)
     const { data: existing } = await supabase
       .from('usage')
       .select('id, count')
@@ -267,24 +341,14 @@ const usageOps = {
       .eq('month', month)
       .single();
 
-    if (existing) {
-      // Update existing
+    if (existing && existing.count > 0) {
       const { error } = await supabase
         .from('usage')
-        .update({ count: existing.count + 1 })
+        .update({ count: existing.count - 1 })
         .eq('id', existing.id);
 
       if (error) {
-        console.error('Error incrementing usage:', error);
-      }
-    } else {
-      // Create new
-      const { error } = await supabase
-        .from('usage')
-        .insert({ user_id: userId, month: month, count: 1 });
-
-      if (error) {
-        console.error('Error creating usage record:', error);
+        console.error('Error decrementing usage:', error);
       }
     }
 
@@ -293,7 +357,7 @@ const usageOps = {
 
   canGenerate: async (userId) => {
     // Ensure profile exists (auto-create if trigger failed)
-    const user = await userOps.ensureProfile(userId);
+    let user = await userOps.ensureProfile(userId);
     const subscription = await userOps.getSubscriptionStatus(userId);
 
     // Paid users with active subscription have unlimited access
@@ -301,10 +365,33 @@ const usageOps = {
       return { allowed: true, remaining: -1, tier: subscription.tier };
     }
 
-    // Check if user has custom monthly limit from promo code
-    const monthlyLimit = user?.custom_monthly_limit || 3;
+    // Check if promo code has expired
+    if (user?.promo_expiry_date) {
+      const now = new Date();
+      const expiryDate = new Date(user.promo_expiry_date);
 
-    // Free users get 3 per month (or custom limit from promo code)
+      if (now > expiryDate) {
+        // Promo has expired - reset to default free tier limit
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            custom_monthly_limit: 10,
+            promo_expiry_date: null
+          })
+          .eq('id', userId);
+
+        if (!error) {
+          // Update local user object to reflect changes
+          user.custom_monthly_limit = 10;
+          user.promo_expiry_date = null;
+        }
+      }
+    }
+
+    // Check if user has custom monthly limit from promo code
+    const monthlyLimit = user?.custom_monthly_limit || 10;
+
+    // Free users get 10 per month (or custom limit from promo code)
     const usage = await usageOps.getUsage(userId);
     const allowed = usage < monthlyLimit;
     const remaining = Math.max(0, monthlyLimit - usage);
@@ -633,8 +720,164 @@ const analyticsOps = {
   }
 };
 
+// Resume operations
+const resumeOps = {
+  // List all resumes for a user
+  list: async (userId) => {
+    const { data, error } = await supabase
+      .from('user_resumes')
+      .select('id, nickname, file_name, file_type, file_size, is_default, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error listing resumes:', error);
+      throw error;
+    }
+    return data || [];
+  },
+
+  // Create new resume
+  create: async (userId, resumeData) => {
+    // Check count first
+    const { count, error: countError } = await supabase
+      .from('user_resumes')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    if (countError) {
+      console.error('Error checking resume count:', countError);
+      throw countError;
+    }
+
+    if (count >= 10) {
+      throw new Error('Maximum 10 resumes allowed per user');
+    }
+
+    const { data, error } = await supabase
+      .from('user_resumes')
+      .insert({
+        user_id: userId,
+        nickname: resumeData.nickname,
+        file_name: resumeData.file_name,
+        file_type: resumeData.file_type,
+        resume_text: resumeData.resume_text,
+        file_size: resumeData.file_size,
+        is_default: count === 0 // First resume is default
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating resume:', error);
+      throw error;
+    }
+    return data;
+  },
+
+  // Update resume (nickname or default status)
+  update: async (userId, resumeId, updates) => {
+    // If setting as default, first unset all others
+    if (updates.is_default) {
+      await supabase
+        .from('user_resumes')
+        .update({ is_default: false })
+        .eq('user_id', userId);
+    }
+
+    const { data, error } = await supabase
+      .from('user_resumes')
+      .update(updates)
+      .eq('id', resumeId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating resume:', error);
+      throw error;
+    }
+    return data;
+  },
+
+  // Delete resume
+  delete: async (userId, resumeId) => {
+    const { data: resume, error: fetchError } = await supabase
+      .from('user_resumes')
+      .select('is_default')
+      .eq('id', resumeId)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching resume:', fetchError);
+      throw fetchError;
+    }
+
+    const { error } = await supabase
+      .from('user_resumes')
+      .delete()
+      .eq('id', resumeId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error deleting resume:', error);
+      throw error;
+    }
+
+    // If deleted resume was default, set first remaining as default
+    if (resume.is_default) {
+      const { data: resumes } = await supabase
+        .from('user_resumes')
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (resumes && resumes.length > 0) {
+        await resumeOps.update(userId, resumes[0].id, { is_default: true });
+      }
+    }
+
+    return true;
+  },
+
+  // Get resume text by ID
+  getText: async (userId, resumeId) => {
+    const { data, error } = await supabase
+      .from('user_resumes')
+      .select('resume_text')
+      .eq('id', resumeId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error getting resume text:', error);
+      throw error;
+    }
+    return data.resume_text;
+  },
+
+  // Get default resume
+  getDefault: async (userId) => {
+    const { data, error } = await supabase
+      .from('user_resumes')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_default', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error getting default resume:', error);
+      throw error;
+    }
+    return data || null;
+  }
+};
+
 module.exports = {
   userOps,
   usageOps,
-  analyticsOps
+  analyticsOps,
+  resumeOps
 };

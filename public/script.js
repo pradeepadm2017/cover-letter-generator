@@ -30,7 +30,16 @@ async function initAuth() {
         return false;
     }
 
+    // Get session first (this processes any OAuth tokens in the URL hash)
     const { data: { session } } = await supabase.auth.getSession();
+
+    // Now clean up the URL hash if there was one
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    if (hashParams.has('access_token')) {
+        console.log('OAuth redirect detected, cleaning up URL');
+        // Clean up the URL by removing the hash AFTER Supabase has processed it
+        window.history.replaceState(null, '', window.location.pathname);
+    }
 
     if (!session) {
         console.log('No session found, redirecting to home');
@@ -78,6 +87,12 @@ async function loadUserInfo() {
             if (data.user.tier !== 'free') {
                 tierBadge.classList.add('tier-paid');
             }
+
+            // Load and display usage counter for free tier users
+            await loadUsageCounter();
+
+            // Check if this is a new user with incomplete profile
+            await checkAndPromptProfileCompletion();
         } else {
             console.error('User not authenticated on backend');
             // Don't redirect here - session exists on frontend
@@ -85,6 +100,53 @@ async function loadUserInfo() {
     } catch (error) {
         console.error('Error loading user info:', error);
         // Don't redirect on error
+    }
+}
+
+// Check if profile is incomplete and prompt user to complete it
+async function checkAndPromptProfileCompletion() {
+    try {
+        const profileValidation = await validateMandatoryProfileFields();
+        if (!profileValidation.isValid) {
+            // Show profile settings modal automatically for new users
+            console.log('New user detected - showing profile settings modal');
+            setTimeout(() => {
+                toggleProfileSettingsModal();
+            }, 500); // Small delay to let the page load first
+        }
+    } catch (error) {
+        console.error('Error checking profile completion:', error);
+    }
+}
+
+// Load and display usage counter
+async function loadUsageCounter() {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/usage/check', { headers });
+        const data = await response.json();
+
+        const usageCounter = document.getElementById('usage-counter');
+
+        if (data.tier === 'free') {
+            const remaining = data.remaining;
+            const limit = data.limit;
+
+            usageCounter.textContent = `${remaining}/${limit} left`;
+            usageCounter.classList.remove('hidden');
+
+            // Add low-usage warning class if running low
+            if (remaining <= 2) {
+                usageCounter.classList.add('low-usage');
+            } else {
+                usageCounter.classList.remove('low-usage');
+            }
+        } else {
+            // Hide counter for paid users (unlimited)
+            usageCounter.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading usage counter:', error);
     }
 }
 
@@ -137,24 +199,35 @@ async function logout() {
 
 // Tab switching function for resume
 function switchResumeTab(tabType) {
+    const savedTab = document.getElementById('saved-resume-tab');
     const textTab = document.getElementById('text-resume-tab');
     const fileTab = document.getElementById('file-resume-tab');
     const tabBtns = document.querySelectorAll('.resume-input-options .tab-btn');
 
-    if (tabType === 'text') {
+    // Hide all tabs
+    savedTab.classList.remove('active');
+    savedTab.classList.add('hidden');
+    textTab.classList.remove('active');
+    textTab.classList.add('hidden');
+    fileTab.classList.remove('active');
+    fileTab.classList.add('hidden');
+
+    // Remove active class from all buttons
+    tabBtns.forEach(btn => btn.classList.remove('active'));
+
+    // Show the selected tab
+    if (tabType === 'saved') {
+        savedTab.classList.add('active');
+        savedTab.classList.remove('hidden');
+        tabBtns[0].classList.add('active');
+    } else if (tabType === 'text') {
         textTab.classList.add('active');
         textTab.classList.remove('hidden');
-        fileTab.classList.remove('active');
-        fileTab.classList.add('hidden');
-        tabBtns[0].classList.add('active');
-        tabBtns[1].classList.remove('active');
+        tabBtns[1].classList.add('active');
     } else {
         fileTab.classList.add('active');
         fileTab.classList.remove('hidden');
-        textTab.classList.remove('active');
-        textTab.classList.add('hidden');
-        tabBtns[1].classList.add('active');
-        tabBtns[0].classList.remove('active');
+        tabBtns[2].classList.add('active');
     }
     updateGenerateButtonState();
 }
@@ -267,12 +340,21 @@ async function fetchWithProxy(url, options = {}) {
     }
 }
 
-function showLoading() {
+function showLoading(message = 'Processing...', submessage = '') {
     document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('loading-message').textContent = message;
+    document.getElementById('loading-submessage').textContent = submessage;
+}
+
+function updateLoadingMessage(message, submessage = '') {
+    document.getElementById('loading-message').textContent = message;
+    document.getElementById('loading-submessage').textContent = submessage;
 }
 
 function hideLoading() {
     document.getElementById('loading').classList.add('hidden');
+    document.getElementById('loading-message').textContent = 'Processing...';
+    document.getElementById('loading-submessage').textContent = '';
 }
 
 function showError(message) {
@@ -376,13 +458,46 @@ function updateGenerateButtonState() {
     // Validation will be done when user clicks the button and shown as modal
 }
 
-function getResumeText() {
+async function getResumeText() {
+    const savedTab = document.getElementById('saved-resume-tab');
     const textTab = document.getElementById('text-resume-tab');
-    if (textTab.classList.contains('active')) {
-        return document.getElementById('resume').value.trim();
-    } else {
-        return resumeText;
+    const fileTab = document.getElementById('file-resume-tab');
+
+    if (savedTab.classList.contains('active')) {
+        // Get resume from saved resumes
+        const select = document.getElementById('saved-resume-select');
+        const resumeId = select.value;
+
+        if (!resumeId) {
+            console.log('❌ No saved resume selected');
+            return null; // No resume selected
+        }
+
+        try {
+            const headers = await getAuthHeaders();
+            const response = await fetch(`/api/user/resumes/${resumeId}/text`, { headers });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data.resume_text;
+            } else {
+                console.error('Failed to fetch resume text');
+                return null;
+            }
+        } catch (error) {
+            console.error('Error fetching resume text:', error);
+            return null;
+        }
+    } else if (textTab.classList.contains('active')) {
+        const text = document.getElementById('resume').value.trim();
+        console.log('📝 Text tab resume length:', text.length);
+        return text || null; // Return null if empty string
+    } else if (fileTab.classList.contains('active')) {
+        console.log('📁 File tab resume text:', resumeText ? resumeText.substring(0, 50) : 'null');
+        return resumeText || null; // Return null if empty
     }
+
+    return null;
 }
 
 // Mode switching removed - extension-only mode now
@@ -510,13 +625,23 @@ function updateUrlStatus(index, status, tooltip = '') {
 async function generateAllCoverLetters() {
     console.log('🎯 FRONTEND: generateAllCoverLetters() called');
 
-    const resume = getResumeText();
+    // Check if mandatory profile fields are filled FIRST
+    const profileValidation = await validateMandatoryProfileFields();
+    if (!profileValidation.isValid) {
+        showAlertModal('Complete Your Profile', profileValidation.message, 'Open Profile Settings', () => {
+            toggleProfileSettingsModal();
+        });
+        return;
+    }
+
+    const resume = await getResumeText();
     const jobUrls = getJobUrls();
 
-    console.log('📝 FRONTEND: Resume length:', resume.length);
+    console.log('📝 FRONTEND: Resume retrieved:', resume);
+    console.log('📝 FRONTEND: Resume length:', resume ? resume.length : 0);
     console.log('🔗 FRONTEND: Job URLs:', jobUrls);
 
-    if (!resume) {
+    if (!resume || resume.trim().length === 0) {
         console.log('❌ FRONTEND: No resume provided');
         showAlertModal('Resume Required', 'Please upload or paste your resume before generating cover letters.', 'OK');
         return;
@@ -538,17 +663,9 @@ async function generateAllCoverLetters() {
         return;
     }
 
-    // Check if mandatory profile fields are filled
-    const profileValidation = await validateMandatoryProfileFields();
-    if (!profileValidation.isValid) {
-        showAlertModal('Complete Your Profile', profileValidation.message, 'Open Profile Settings', () => {
-            toggleProfileSettingsModal();
-        });
-        return;
-    }
-
     console.log('🚀 FRONTEND: About to make API call');
-    showLoading();
+    const jobCount = jobUrls.length;
+    showLoading('Preparing your request...', `Processing ${jobCount} job${jobCount > 1 ? 's' : ''}...`);
 
     // Clear all URL statuses
     jobUrls.forEach((_, index) => {
@@ -560,6 +677,8 @@ async function generateAllCoverLetters() {
 
     try {
         console.log('📡 FRONTEND: Sending fetch request to /api/generate-cover-letters');
+        updateLoadingMessage('Extracting job information...', 'Analyzing job descriptions with AI...');
+
         const headers = await getAuthHeaders();
         const response = await fetch('/api/generate-cover-letters', {
             method: 'POST',
@@ -571,16 +690,19 @@ async function generateAllCoverLetters() {
         });
         console.log('📡 FRONTEND: Received response:', response.status);
 
+        updateLoadingMessage('Generating cover letters...', 'Creating personalized content for each job...');
         const data = await response.json();
         console.log('📦 FRONTEND: Response data:', data);
 
         if (!response.ok) {
             // Special handling for usage limit errors
             if (response.status === 403 && data.error === 'Usage limit reached') {
+                console.log('🚫 Usage limit reached - processing partial results');
                 hideLoading();
 
                 // Process any successful results before showing the limit message
                 if (data.results && data.results.length > 0) {
+                    console.log(`📊 Processing ${data.results.length} partial results`);
                     // Display the partial results first
                     data.results.forEach((result, index) => {
                         if (result.success) {
@@ -618,12 +740,21 @@ async function generateAllCoverLetters() {
                     }
                 }
 
+                // Refresh usage counter
+                await loadUsageCounter();
+
                 // Show modal after a short delay to let downloads start
+                console.log('⏰ Setting timeout to show limit reached modal');
                 setTimeout(() => {
-                    const shouldOpenModal = confirm('You have reached your monthly limit.\n\nWould you like to:\n• Enter a promo code for more free cover letters\n• Or upgrade to a paid plan for unlimited access?\n\nClick OK to view options or Cancel to return.');
-                    if (shouldOpenModal) {
-                        toggleSubscriptionModal();
-                    }
+                    console.log('🎯 Showing limit reached modal');
+                    showAlertModal(
+                        'Free Tier Limit Reached',
+                        'Use a promo code to extend your limit.\n\nIf you don\'t have a promo code, email pradeepadm2017@gmail.com to get one.',
+                        'Use Promo Code',
+                        () => {
+                            togglePromoCodeModal();
+                        }
+                    );
                 }, 500);
 
                 return;
@@ -695,6 +826,11 @@ async function generateAllCoverLetters() {
         const fallbackCount = data.results.filter(r => r.usedFallback).length;
         const totalCount = data.results.length;
 
+        // Update loading message for downloads
+        if (successCount > 0) {
+            updateLoadingMessage('Preparing downloads...', `${successCount} cover letter${successCount > 1 ? 's' : ''} ready!`);
+        }
+
         // Add summary section at the bottom
         const summaryDiv = document.createElement('div');
         summaryDiv.className = 'generation-summary';
@@ -702,10 +838,12 @@ async function generateAllCoverLetters() {
             <div class="summary-content">
                 <h3>Generation Summary</h3>
                 <div class="summary-stats">
+                    ${successCount > 0 ? `
                     <div class="stat-item success">
                         <span class="stat-icon">✓</span>
                         <span class="stat-text">${successCount} cover letter${successCount !== 1 ? 's' : ''} generated successfully</span>
                     </div>
+                    ` : ''}
                     ${fallbackCount > 0 ? `
                     <div class="stat-item warning">
                         <span class="stat-icon">⚠</span>
@@ -734,6 +872,8 @@ async function generateAllCoverLetters() {
         showError('Unable to generate cover letters. Please check your inputs and try again.');
     } finally {
         hideLoading();
+        // Refresh usage counter after generation
+        await loadUsageCounter();
     }
 }
 
@@ -803,6 +943,80 @@ function formatTierName(tier) {
 function toggleSubscriptionModal() {
     const modal = document.getElementById('subscription-modal');
     modal.classList.toggle('hidden');
+}
+
+// Toggle Promo Code Modal
+function togglePromoCodeModal() {
+    const modal = document.getElementById('promo-code-modal');
+    const isHidden = modal.classList.contains('hidden');
+
+    if (isHidden) {
+        // Clear input and message when opening
+        document.getElementById('promo-code-modal-input').value = '';
+        const messageDiv = document.getElementById('promo-modal-message');
+        messageDiv.classList.add('hidden');
+        messageDiv.textContent = '';
+    }
+
+    modal.classList.toggle('hidden');
+}
+
+// Apply promo code from the modal
+async function applyPromoCodeFromModal() {
+    const promoCodeInput = document.getElementById('promo-code-modal-input');
+    const messageDiv = document.getElementById('promo-modal-message');
+    const promoCode = promoCodeInput.value.trim();
+
+    if (!promoCode) {
+        messageDiv.textContent = 'Please enter a promo code';
+        messageDiv.style.backgroundColor = '#fee2e2';
+        messageDiv.style.color = '#dc2626';
+        messageDiv.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/promo-code/apply', {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ promoCode })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            messageDiv.textContent = data.message;
+            messageDiv.style.backgroundColor = '#d1fae5';
+            messageDiv.style.color = '#047857';
+            messageDiv.classList.remove('hidden');
+
+            // Refresh user data to show updated usage
+            await loadUserData();
+
+            // Refresh usage counter to show new limit
+            await loadUsageCounter();
+
+            // Clear input after success
+            setTimeout(() => {
+                promoCodeInput.value = '';
+            }, 2000);
+        } else {
+            messageDiv.textContent = data.error || 'Invalid promo code';
+            messageDiv.style.backgroundColor = '#fee2e2';
+            messageDiv.style.color = '#dc2626';
+            messageDiv.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error applying promo code:', error);
+        messageDiv.textContent = 'An error occurred. Please try again.';
+        messageDiv.style.backgroundColor = '#fee2e2';
+        messageDiv.style.color = '#dc2626';
+        messageDiv.classList.remove('hidden');
+    }
 }
 
 async function changePlan(tier) {
@@ -912,6 +1126,9 @@ async function applyPromoCode() {
 
             // Reload user data to update usage display
             await loadUserData();
+
+            // Refresh usage counter to show new limit
+            await loadUsageCounter();
 
             showSuccess('Promo code applied successfully!');
         } else {
@@ -1319,16 +1536,421 @@ function updateHeaderPreview() {
     `;
 }
 
+// ===== RESUME MANAGEMENT FUNCTIONS =====
+
+// Global variable to store resumes
+let userResumes = [];
+
+// Toggle Manage Resumes Modal
+function toggleManageResumesModal() {
+    const modal = document.getElementById('manage-resumes-modal');
+    const isHidden = modal.classList.contains('hidden');
+
+    if (isHidden) {
+        // Opening modal - load resumes and clear any messages
+        loadResumesForModal();
+        clearUploadError();
+        clearUploadSuccess();
+        clearResumeActionMessage();
+    }
+
+    modal.classList.toggle('hidden');
+}
+
+// Helper function to show upload success
+function showUploadSuccess(message) {
+    const successDiv = document.getElementById('upload-success-message');
+    if (successDiv) {
+        successDiv.textContent = message;
+        successDiv.classList.remove('hidden');
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            successDiv.classList.add('hidden');
+        }, 5000);
+    }
+}
+
+// Helper function to show upload error
+function showUploadError(message) {
+    const errorDiv = document.getElementById('upload-error-message');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
+}
+
+// Helper function to clear upload error
+function clearUploadError() {
+    const errorDiv = document.getElementById('upload-error-message');
+    if (errorDiv) {
+        errorDiv.textContent = '';
+        errorDiv.classList.add('hidden');
+    }
+}
+
+// Helper function to clear upload success
+function clearUploadSuccess() {
+    const successDiv = document.getElementById('upload-success-message');
+    if (successDiv) {
+        successDiv.textContent = '';
+        successDiv.classList.add('hidden');
+    }
+}
+
+// Helper function to show resume action message (for deletes, renames, set default, etc.)
+function showResumeActionMessage(message, isSuccess = true) {
+    const messageDiv = document.getElementById('resume-action-message');
+    if (messageDiv) {
+        // Clear previous states
+        messageDiv.classList.remove('success', 'error');
+
+        messageDiv.textContent = message;
+        messageDiv.classList.remove('hidden');
+
+        if (isSuccess) {
+            messageDiv.classList.add('success');
+        } else {
+            messageDiv.classList.add('error');
+        }
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            messageDiv.classList.add('hidden');
+            messageDiv.classList.remove('success', 'error');
+        }, 5000);
+    }
+}
+
+// Helper function to clear resume action message
+function clearResumeActionMessage() {
+    const messageDiv = document.getElementById('resume-action-message');
+    if (messageDiv) {
+        messageDiv.textContent = '';
+        messageDiv.classList.add('hidden');
+        messageDiv.classList.remove('success', 'error');
+    }
+}
+
+// Load saved resumes for the dropdown
+async function loadSavedResumes() {
+    console.log('🔄 loadSavedResumes: Starting...');
+    try {
+        const headers = await getAuthHeaders();
+        console.log('🔄 loadSavedResumes: Got auth headers');
+        const response = await fetch('/api/user/resumes', { headers });
+        console.log('🔄 loadSavedResumes: Received response:', response.status);
+
+        if (response.ok) {
+            userResumes = await response.json();
+            console.log('🔄 loadSavedResumes: Loaded', userResumes.length, 'resumes');
+            const select = document.getElementById('saved-resume-select');
+
+            if (!select) {
+                console.error('❌ saved-resume-select element not found!');
+                return;
+            }
+
+            if (userResumes.length === 0) {
+                select.innerHTML = '<option value="">No saved resumes. Upload one using Manage Resumes.</option>';
+            } else {
+                // Sort resumes: default first, then by created_at descending
+                const sortedResumes = [...userResumes].sort((a, b) => {
+                    if (a.is_default && !b.is_default) return -1;
+                    if (!a.is_default && b.is_default) return 1;
+                    return new Date(b.created_at) - new Date(a.created_at);
+                });
+
+                select.innerHTML = '<option value="">Select a resume...</option>';
+                sortedResumes.forEach(resume => {
+                    const option = document.createElement('option');
+                    option.value = resume.id;
+                    option.textContent = resume.nickname + (resume.is_default ? ' (Default)' : '');
+                    if (resume.is_default) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                console.log('✅ loadSavedResumes: Successfully populated dropdown');
+            }
+        } else {
+            console.error('❌ loadSavedResumes: Failed to load saved resumes - status:', response.status);
+            const select = document.getElementById('saved-resume-select');
+            if (select) {
+                select.innerHTML = '<option value="">Error loading resumes</option>';
+            }
+        }
+    } catch (error) {
+        console.error('❌ loadSavedResumes: Error:', error);
+        const select = document.getElementById('saved-resume-select');
+        if (select) {
+            select.innerHTML = '<option value="">Error loading resumes</option>';
+        }
+    }
+}
+
+// Load resumes for the modal list
+async function loadResumesForModal() {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/user/resumes', { headers });
+
+        if (response.ok) {
+            userResumes = await response.json();
+            displayResumesList(userResumes);
+        } else {
+            console.error('Failed to load resumes for modal');
+        }
+    } catch (error) {
+        console.error('Error loading resumes for modal:', error);
+    }
+}
+
+// Display resumes list in modal
+function displayResumesList(resumes) {
+    const listContainer = document.getElementById('resumes-list');
+
+    if (resumes.length === 0) {
+        listContainer.innerHTML = '<p class="no-resumes-text">No resumes yet. Upload your first resume above!</p>';
+        return;
+    }
+
+    listContainer.innerHTML = resumes.map(resume => `
+        <div class="resume-item" data-resume-id="${resume.id}">
+            <div class="resume-info">
+                <div class="resume-nickname">${resume.nickname}${resume.is_default ? ' <span class="default-badge">Default</span>' : ''}</div>
+                <div class="resume-details">
+                    ${resume.file_name} • ${(resume.file_size / 1024).toFixed(1)} KB • ${new Date(resume.created_at).toLocaleDateString()}
+                </div>
+            </div>
+            <div class="resume-actions">
+                ${!resume.is_default ? `<button class="btn-icon" onclick="setDefaultResume('${resume.id}')" title="Set as default">⭐</button>` : ''}
+                <button class="btn-icon" onclick="renameResume('${resume.id}', '${resume.nickname.replace(/'/g, "\\'")}')" title="Rename">✏️</button>
+                <button class="btn-icon btn-delete" onclick="deleteResume('${resume.id}')" title="Delete">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Upload new resume
+async function uploadNewResume() {
+    const nicknameInput = document.getElementById('new-resume-nickname');
+    const fileInput = document.getElementById('new-resume-file');
+    const fileNameDisplay = document.getElementById('new-resume-file-name');
+    const uploadButton = document.querySelector('.upload-form .btn-primary');
+
+    const nickname = nicknameInput.value.trim();
+    const file = fileInput.files[0];
+
+    // Clear any previous errors
+    clearUploadError();
+
+    if (!nickname) {
+        showUploadError('Please enter a nickname for your resume.');
+        return;
+    }
+
+    if (!file) {
+        showUploadError('Please select a file to upload.');
+        return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['.doc', '.docx', '.txt'];
+    const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedTypes.includes(fileExt)) {
+        showUploadError('Only DOC, DOCX, and TXT files are supported.');
+        return;
+    }
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        showUploadError('File size must be less than 10MB.');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('nickname', nickname);
+        formData.append('resume', file);
+
+        const headers = await getAuthHeaders();
+        // Remove Content-Type header to let browser set it with boundary for multipart
+        delete headers['Content-Type'];
+
+        const response = await fetch('/api/user/resumes', {
+            method: 'POST',
+            headers: headers,
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Clear form
+            nicknameInput.value = '';
+            fileInput.value = '';
+            fileNameDisplay.textContent = 'No file chosen';
+            if (uploadButton) {
+                uploadButton.classList.remove('file-selected');
+            }
+
+            // Clear any errors
+            clearUploadError();
+
+            // Show success message in the modal
+            showUploadSuccess('Resume uploaded successfully!');
+
+            // Reload resumes
+            await loadResumesForModal();
+            await loadSavedResumes();
+        } else {
+            showUploadError(data.error || 'Failed to upload resume.');
+        }
+    } catch (error) {
+        console.error('Error uploading resume:', error);
+        showUploadError('An error occurred while uploading the resume.');
+    }
+}
+
+// Set default resume
+async function setDefaultResume(resumeId) {
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`/api/user/resumes/${resumeId}`, {
+            method: 'PUT',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_default: true })
+        });
+
+        if (response.ok) {
+            // Show success message in the modal
+            showResumeActionMessage('Default resume updated successfully!');
+
+            // Reload resumes
+            await loadResumesForModal();
+            await loadSavedResumes();
+        } else {
+            const data = await response.json();
+            showResumeActionMessage(data.error || 'Failed to set default resume.', false);
+        }
+    } catch (error) {
+        console.error('Error setting default resume:', error);
+        showResumeActionMessage('An error occurred while setting default resume.', false);
+    }
+}
+
+// Rename resume
+async function renameResume(resumeId, currentNickname) {
+    const newNickname = prompt('Enter new nickname:', currentNickname);
+
+    if (!newNickname || newNickname.trim() === currentNickname) {
+        return; // User cancelled or didn't change
+    }
+
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`/api/user/resumes/${resumeId}`, {
+            method: 'PUT',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ nickname: newNickname.trim() })
+        });
+
+        if (response.ok) {
+            // Show success message in the modal
+            showResumeActionMessage('Resume renamed successfully!');
+
+            // Reload resumes
+            await loadResumesForModal();
+            await loadSavedResumes();
+        } else {
+            const data = await response.json();
+            showResumeActionMessage(data.error || 'Failed to rename resume.', false);
+        }
+    } catch (error) {
+        console.error('Error renaming resume:', error);
+        showResumeActionMessage('An error occurred while renaming the resume.', false);
+    }
+}
+
+// Delete resume
+async function deleteResume(resumeId) {
+    if (!confirm('Are you sure you want to delete this resume? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`/api/user/resumes/${resumeId}`, {
+            method: 'DELETE',
+            headers: headers
+        });
+
+        if (response.ok) {
+            // Show success message in the modal
+            showResumeActionMessage('Resume deleted successfully!');
+
+            // Reload resumes
+            await loadResumesForModal();
+            await loadSavedResumes();
+        } else {
+            const data = await response.json();
+            showResumeActionMessage(data.error || 'Failed to delete resume.', false);
+        }
+    } catch (error) {
+        console.error('Error deleting resume:', error);
+        showResumeActionMessage('An error occurred while deleting the resume.', false);
+    }
+}
+
+// Event listener for new resume file input
+document.addEventListener('DOMContentLoaded', function() {
+    const newResumeFileInput = document.getElementById('new-resume-file');
+    if (newResumeFileInput) {
+        newResumeFileInput.addEventListener('change', function() {
+            const fileNameDisplay = document.getElementById('new-resume-file-name');
+            const uploadButton = document.querySelector('.upload-form .btn-primary');
+
+            if (this.files.length > 0) {
+                fileNameDisplay.textContent = this.files[0].name;
+                // Enable and highlight the upload button
+                if (uploadButton) {
+                    uploadButton.classList.add('file-selected');
+                }
+            } else {
+                fileNameDisplay.textContent = 'No file chosen';
+                // Remove highlight from upload button
+                if (uploadButton) {
+                    uploadButton.classList.remove('file-selected');
+                }
+            }
+        });
+    }
+});
+
 // Close modals when clicking outside
 window.onclick = function(event) {
     const subscriptionModal = document.getElementById('subscription-modal');
     const profileModal = document.getElementById('profile-settings-modal');
+    const manageResumesModal = document.getElementById('manage-resumes-modal');
+    const promoCodeModal = document.getElementById('promo-code-modal');
 
     if (event.target === subscriptionModal) {
         toggleSubscriptionModal();
     }
     if (event.target === profileModal) {
         toggleProfileSettingsModal();
+    }
+    if (event.target === manageResumesModal) {
+        toggleManageResumesModal();
+    }
+    if (event.target === promoCodeModal) {
+        togglePromoCodeModal();
     }
 }
 
@@ -1372,7 +1994,17 @@ document.addEventListener('change', function(e) {
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', async function() {
-    await initAuth(); // Initialize Supabase auth first
-    updateGenerateButtonState();
-    loadUserData();
+    try {
+        await initAuth(); // Initialize Supabase auth first
+        updateGenerateButtonState();
+        loadUserData();
+        await loadSavedResumes(); // Load saved resumes for the dropdown
+    } catch (error) {
+        console.error('Error initializing app:', error);
+        // Show a fallback option if resumes fail to load
+        const select = document.getElementById('saved-resume-select');
+        if (select && select.value === '') {
+            select.innerHTML = '<option value="">No saved resumes</option>';
+        }
+    }
 });

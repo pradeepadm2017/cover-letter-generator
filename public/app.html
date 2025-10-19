@@ -19,11 +19,11 @@
                     <div class="user-info">
                         <span id="user-email">Loading...</span>
                         <span id="user-tier" class="tier-badge">Free</span>
+                        <span id="usage-counter" class="usage-counter hidden">0/10 cover letters left</span>
                     </div>
                     <div class="user-actions">
                         <button type="button" class="btn-secondary" onclick="toggleProfileSettingsModal()">Profile Settings</button>
-                        <button type="button" class="btn-secondary" onclick="toggleSubscriptionModal()">Manage Subscription</button>
-                        <button type="button" class="btn-secondary" onclick="window.open('user-guide.html', '_blank')">User Guide</button>
+                        <button type="button" class="btn-secondary" onclick="togglePromoCodeModal()">Use Promo Code</button>
                         <button type="button" class="btn-logout" onclick="logout()">Logout</button>
                     </div>
                 </div>
@@ -35,14 +35,30 @@
                 <h2>Your Resume</h2>
                 <div class="resume-input-options">
                     <div class="option-tabs">
-                        <button type="button" class="tab-btn active" onclick="switchResumeTab('text')">
-                            Paste Text
+                        <button type="button" class="tab-btn active" onclick="switchResumeTab('saved')">
+                            Saved Resumes
+                        </button>
+                        <button type="button" class="tab-btn" onclick="switchResumeTab('text')">
+                            Paste a new resume
                         </button>
                         <button type="button" class="tab-btn" onclick="switchResumeTab('file')">
-                            Upload File
+                            Upload a new resume
                         </button>
                     </div>
-                    <div id="text-resume-tab" class="resume-tab active">
+                    <div id="saved-resume-tab" class="resume-tab active">
+                        <div class="saved-resume-section">
+                            <div class="saved-resume-controls">
+                                <select id="saved-resume-select" class="saved-resume-select">
+                                    <option value="">Loading resumes...</option>
+                                </select>
+                                <button type="button" class="btn-secondary manage-resumes-btn" onclick="toggleManageResumesModal()">
+                                    Manage Resumes
+                                </button>
+                            </div>
+                            <p class="resume-info-text">Select a resume from your saved resumes or <a href="#" onclick="event.preventDefault(); switchResumeTab('file');">upload a new one</a></p>
+                        </div>
+                    </div>
+                    <div id="text-resume-tab" class="resume-tab hidden">
                         <textarea
                             id="resume"
                             placeholder="Paste your resume here..."
@@ -117,7 +133,8 @@
             <div id="manual-mode-section" class="form-section">
                 <h2>Job Descriptions</h2>
                 <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
-                    Paste the job description below. Title and company are optional - AI will extract them if not provided.
+                    Copy job details from the job board and simply paste here. Title and company are optional - AI will extract them if not provided.<br>
+                    <strong style="color: #059669;">💡 Quick tip:</strong> <span style="color: #047857;">In your browser, open the job in a new tab/page, select all (CTRL+A), copy (CTRL+C), then come here and paste (CTRL+V).</span>
                 </p>
                 <div id="manual-jobs-container">
                     <div class="manual-job-card" data-index="0">
@@ -177,7 +194,8 @@ Requirements:
 
         <div id="loading" class="loading hidden">
             <div class="spinner"></div>
-            <p>Processing...</p>
+            <p id="loading-message">Processing...</p>
+            <p id="loading-submessage" style="font-size: 14px; color: #666; margin-top: 10px;"></p>
         </div>
 
         <div id="error-message" class="error-message hidden"></div>
@@ -187,12 +205,12 @@ Requirements:
     <div id="profile-settings-modal" class="modal hidden">
         <div class="modal-content profile-settings-content">
             <div class="modal-header">
-                <h2>Profile Settings - Cover Letter Header</h2>
+                <h2>Profile Settings - Customize Cover Letter Template</h2>
                 <button type="button" class="modal-close" onclick="toggleProfileSettingsModal()">&times;</button>
             </div>
             <div class="modal-body profile-settings-body">
                 <p class="settings-intro">
-                    Customize your cover letter header. Make sure you provide Name, Email and Phone Number for creating a professional cover letter.
+                    Customize your cover letter template including header, signature, and formatting. Make sure you provide Name, Email and Phone Number for creating a professional cover letter.
                 </p>
 
                 <!-- Profile Information Form -->
@@ -458,59 +476,50 @@ Requirements:
     <div id="subscription-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Manage Subscription</h2>
+                <h2>Your Subscription</h2>
                 <button type="button" class="modal-close" onclick="toggleSubscriptionModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="subscription-plans">
-                    <h3>Simple, Transparent Pricing</h3>
-                    <div class="plans-grid">
-                        <div class="plan-card" data-tier="free">
-                            <h4>Free</h4>
-                            <div class="price">$0<span>/month</span></div>
-                            <ul class="features">
-                                <li>3 cover letters/month</li>
-                                <li>AI-powered letters</li>
-                                <li>Word downloads</li>
-                            </ul>
-                            <button type="button" class="btn-plan" onclick="changePlan('free')" disabled>Current Plan</button>
+                <!-- Development Notice & Current Plan Combined -->
+                <div style="background: #eff6ff; border: 2px solid #3b82f6; border-radius: 12px; padding: 30px; margin-bottom: 20px;">
+                    <h3 style="color: #1d4ed8; margin: 0 0 10px 0; font-size: 18px;">🚧 Still in Development</h3>
+                    <p style="color: #1e40af; margin: 0 0 20px 0; font-size: 15px;">
+                        We're currently in beta! Premium subscription tiers with unlimited cover letters and advanced features will be available soon.
+                        For now, try our free access. If you exceed the limit, send an email to
+                        <a href="mailto:pradeepadm2017@gmail.com" style="color: #1d4ed8; font-weight: 600; text-decoration: underline;">pradeepadm2017@gmail.com</a>
+                        for a promo code to continue enjoying our services.
+                    </p>
+
+                    <hr style="border: none; border-top: 1px solid #bfdbfe; margin: 25px 0;">
+
+                    <div>
+                        <div style="text-align: center;">
+                            <div style="display: inline-block; background: #1d4ed8; color: white; padding: 4px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; margin-bottom: 15px;">
+                                Currently Available
+                            </div>
                         </div>
-                        <div class="plan-card" data-tier="monthly">
-                            <h4>Monthly</h4>
-                            <div class="price">$12<span>/month</span></div>
-                            <ul class="features">
-                                <li>Unlimited letters</li>
-                                <li>AI-powered letters</li>
-                                <li>Priority support</li>
-                            </ul>
-                            <button type="button" class="btn-plan" onclick="changePlan('monthly')">Select Plan</button>
+                        <h3 style="color: #111827; margin: 0 0 15px 0; font-size: 24px; font-weight: 700; text-align: center;">Free Tier</h3>
+                        <div style="margin-bottom: 20px; text-align: center;">
+                            <span style="font-size: 48px; font-weight: 700; color: #111827;">$0</span>
+                            <span style="font-size: 18px; color: #6b7280;">/month</span>
                         </div>
-                        <div class="plan-card featured" data-tier="quarterly">
-                            <div class="badge">Best Value</div>
-                            <h4>Quarterly</h4>
-                            <div class="price">$24<span>/3 months</span></div>
-                            <div class="savings">Save 33%</div>
-                            <ul class="features">
-                                <li>Unlimited letters</li>
-                                <li>AI-powered letters</li>
-                                <li>Priority support</li>
-                            </ul>
-                            <button type="button" class="btn-plan" onclick="changePlan('quarterly')">Select Plan</button>
-                        </div>
-                        <div class="plan-card" data-tier="lifetime">
-                            <div class="badge lifetime">Lifetime</div>
-                            <h4>Lifetime</h4>
-                            <div class="price">$50<span>/one-time</span></div>
-                            <div class="savings">Pay once, use forever</div>
-                            <ul class="features">
-                                <li>Unlimited letters</li>
-                                <li>AI-powered letters</li>
-                                <li>Priority support</li>
-                                <li>No renewals ever</li>
-                            </ul>
-                            <button type="button" class="btn-plan" onclick="changePlan('lifetime')">Get Lifetime Access</button>
+                        <ul style="list-style: none; padding: 0; margin: 0 0 25px 0; max-width: 300px; margin-left: auto; margin-right: auto;">
+                            <li style="padding: 8px 0; color: #374151; font-size: 15px;">✓ 10 cover letters/month</li>
+                            <li style="padding: 8px 0; color: #374151; font-size: 15px;">✓ AI-powered letters</li>
+                            <li style="padding: 8px 0; color: #374151; font-size: 15px;">✓ Word downloads</li>
+                            <li style="padding: 8px 0; color: #374151; font-size: 15px;">✓ Multiple resume storage</li>
+                            <li style="padding: 8px 0; color: #374151; font-size: 15px;">✓ Job URL extraction</li>
+                        </ul>
+                        <div style="text-align: center;">
+                            <button type="button" style="background: #6b7280; color: white; padding: 10px 28px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: not-allowed; opacity: 0.7;">
+                                Active
+                            </button>
                         </div>
                     </div>
+
+                    <p style="text-align: center; color: #1e40af; font-size: 14px; margin-top: 25px; margin-bottom: 0;">
+                        💡 Premium plans coming soon with unlimited cover letters, priority support, and advanced customization!
+                    </p>
                 </div>
 
                 <div id="promo-code-section" class="promo-code-section">
@@ -522,12 +531,26 @@ Requirements:
                     </div>
                     <div id="promo-message" class="promo-message hidden"></div>
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <div id="cancel-section" class="cancel-section hidden">
-                    <h3>Cancel Subscription</h3>
-                    <p>Are you sure you want to cancel your subscription? You'll lose access to premium features at the end of your billing period.</p>
-                    <button type="button" class="btn-danger" onclick="cancelSubscription()">Cancel Subscription</button>
+    <!-- Promo Code Modal -->
+    <div id="promo-code-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Use Promo Code</h2>
+                <button type="button" class="modal-close" onclick="togglePromoCodeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+                    Enter your promo code to unlock additional free cover letters
+                </p>
+                <div class="promo-input-group">
+                    <input type="text" id="promo-code-modal-input" placeholder="Enter promo code" style="flex: 1; padding: 12px 16px; border: 2px solid #d1d5db; border-radius: 8px; font-size: 15px;" />
+                    <button type="button" class="btn-primary" onclick="applyPromoCodeFromModal()" style="padding: 12px 24px; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Apply</button>
                 </div>
+                <div id="promo-modal-message" class="promo-message hidden" style="margin-top: 15px; padding: 12px; border-radius: 8px; font-size: 14px;"></div>
             </div>
         </div>
     </div>
@@ -557,6 +580,58 @@ Requirements:
             </div>
             <div class="alert-modal-footer">
                 <button type="button" id="alert-modal-button" class="btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Resumes Modal -->
+    <div id="manage-resumes-modal" class="modal hidden">
+        <div class="modal-content manage-resumes-modal-content">
+            <div class="modal-header">
+                <h2>Manage Resumes</h2>
+                <button class="close-btn" onclick="toggleManageResumesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Upload New Resume Section -->
+                <div class="upload-resume-section">
+                    <h3>Upload New Resume</h3>
+                    <div id="upload-success-message" class="upload-success-message hidden"></div>
+                    <div id="upload-error-message" class="upload-error-message hidden"></div>
+                    <div class="upload-form">
+                        <input
+                            type="text"
+                            id="new-resume-nickname"
+                            placeholder="Enter a nickname (e.g., 'Software Engineer Resume')"
+                            class="form-input"
+                        >
+                        <input
+                            type="file"
+                            id="new-resume-file"
+                            accept=".doc,.docx,.txt"
+                            style="display: none;"
+                        >
+                        <label for="new-resume-file" class="btn-secondary upload-resume-label">
+                            Choose File
+                        </label>
+                        <span id="new-resume-file-name" class="file-name-display">No file chosen</span>
+                        <button type="button" class="btn-primary" onclick="uploadNewResume()">Upload</button>
+                    </div>
+                    <p class="info-text info-text-burgundy">Maximum 10 resumes. Supports: DOC, DOCX, TXT (10MB max)</p>
+                </div>
+
+                <hr class="modal-divider">
+
+                <!-- Existing Resumes Section -->
+                <div class="existing-resumes-section">
+                    <h3>Your Resumes</h3>
+                    <div id="resume-action-message" class="resume-action-message hidden"></div>
+                    <div id="resumes-list" class="resumes-list">
+                        <p class="loading-text">Loading resumes...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="toggleManageResumesModal()">Cancel</button>
             </div>
         </div>
     </div>
