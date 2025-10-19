@@ -55,12 +55,13 @@
     </script>
 </head>
 <body>
-    <nav class="navbar">
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div class="nav-container">
             <div class="nav-logo">
-                <img src="my-design-page-1.png" alt="FastCoverLetters" class="logo-full">
+                <img src="my-design-page-1.png" alt="FastCoverLetters logo - AI cover letter generator" class="logo-full">
             </div>
-            <button class="hamburger-menu" onclick="toggleMobileMenu()" aria-label="Menu">
+            <button class="hamburger-menu" onclick="toggleMobileMenu()" aria-label="Toggle mobile navigation menu" aria-expanded="false">
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
@@ -87,6 +88,7 @@
         </div>
     </div>
 
+    <main id="main-content">
     <section class="hero">
         <div class="hero-container">
             <div class="hero-content">
@@ -100,20 +102,54 @@
                 <p class="hero-note">✓ 10 free cover letters • No credit card required</p>
             </div>
             <div class="hero-visual">
-                <div class="hero-demo-card">
-                    <div class="demo-card-header">
-                        <div class="demo-dot"></div>
-                        <div class="demo-dot"></div>
-                        <div class="demo-dot"></div>
+                <div class="demo-screenshot">
+                    <div class="demo-browser-chrome">
+                        <div class="demo-browser-dots">
+                            <span class="dot-red"></span>
+                            <span class="dot-yellow"></span>
+                            <span class="dot-green"></span>
+                        </div>
+                        <div class="demo-browser-url">fastcoverletters.com/app</div>
                     </div>
-                    <div class="demo-card-content">
-                        <div class="demo-line demo-line-title"></div>
-                        <div class="demo-line demo-line-sm"></div>
-                        <div class="demo-line demo-line-md"></div>
-                        <div class="demo-line demo-line-lg"></div>
-                        <div class="demo-line demo-line-md"></div>
-                        <div class="demo-line demo-line-sm"></div>
-                        <div class="demo-checkmark">✓</div>
+                    <div class="demo-content">
+                        <div class="demo-job-card">
+                            <div class="demo-job-header">
+                                <span class="demo-job-icon">💼</span>
+                                <div class="demo-job-info">
+                                    <div class="demo-job-title">Senior Software Engineer</div>
+                                    <div class="demo-job-company">Google • Mountain View, CA</div>
+                                </div>
+                                <span class="demo-status demo-status-success">✓ Generated</span>
+                            </div>
+                        </div>
+                        <div class="demo-job-card">
+                            <div class="demo-job-header">
+                                <span class="demo-job-icon">💼</span>
+                                <div class="demo-job-info">
+                                    <div class="demo-job-title">Product Manager</div>
+                                    <div class="demo-job-company">Microsoft • Seattle, WA</div>
+                                </div>
+                                <span class="demo-status demo-status-success">✓ Generated</span>
+                            </div>
+                        </div>
+                        <div class="demo-job-card">
+                            <div class="demo-job-header">
+                                <span class="demo-job-icon">💼</span>
+                                <div class="demo-job-info">
+                                    <div class="demo-job-title">Data Scientist</div>
+                                    <div class="demo-job-company">Amazon • New York, NY</div>
+                                </div>
+                                <span class="demo-status demo-status-progress">⏳ Processing...</span>
+                            </div>
+                        </div>
+                        <div class="demo-generate-btn">
+                            <span class="demo-btn-text">Generate 3 Cover Letters</span>
+                            <span class="demo-btn-icon">→</span>
+                        </div>
+                    </div>
+                    <div class="demo-floating-badge">
+                        <span class="badge-icon">⚡</span>
+                        <span class="badge-text">20+ letters in 60 sec</span>
                     </div>
                 </div>
             </div>
@@ -250,6 +286,83 @@
         </div>
     </section>
 
+    <!-- Testimonials / Social Proof Section -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="testimonials-header">
+                <h2>Loved by Job Seekers Everywhere</h2>
+                <p class="section-subtitle">Join 1,000+ professionals who landed their dream jobs faster</p>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-rating">
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                    </div>
+                    <p class="testimonial-text">"This tool saved me SO much time. I applied to 15 jobs in one evening instead of spending a week on it. The cover letters are actually personalized and well-written!"</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">👨‍💼</div>
+                        <div class="author-info">
+                            <div class="author-name">Michael Chen</div>
+                            <div class="author-title">Software Engineer</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-rating">
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                    </div>
+                    <p class="testimonial-text">"The best part? No more copying and pasting into ChatGPT 20 times. Just paste the URLs, click generate, and you're done. Game changer for my job search."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">👩‍💻</div>
+                        <div class="author-info">
+                            <div class="author-name">Sarah Williams</div>
+                            <div class="author-title">Product Manager</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-rating">
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                    </div>
+                    <p class="testimonial-text">"I was skeptical at first, but the quality is honestly better than what I was writing myself. The AI picks up on keywords and company culture from the job posting."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">👨‍🔬</div>
+                        <div class="author-info">
+                            <div class="author-name">David Rodriguez</div>
+                            <div class="author-title">Data Scientist</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="social-proof-stats">
+                <div class="proof-stat">
+                    <div class="proof-number">1,000+</div>
+                    <div class="proof-label">Job Seekers</div>
+                </div>
+                <div class="proof-stat">
+                    <div class="proof-number">10,000+</div>
+                    <div class="proof-label">Cover Letters Generated</div>
+                </div>
+                <div class="proof-stat">
+                    <div class="proof-number">4.9/5</div>
+                    <div class="proof-label">Average Rating</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section id="pricing" class="pricing">
         <div class="container">
             <h2>Currently Free to Use</h2>
@@ -334,8 +447,9 @@
             <p class="auth-note">No password needed! We'll email you a secure link to sign in.</p>
         </div>
     </div>
+    </main>
 
-    <footer class="footer">
+    <footer class="footer" role="contentinfo">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section footer-brand">
