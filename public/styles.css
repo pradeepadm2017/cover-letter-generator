@@ -1503,6 +1503,59 @@ textarea.success:focus {
         padding: 20px;
     }
 }
+
+/* App Header - Very small mobile screens */
+@media (max-width: 640px) {
+    header {
+        padding: var(--space-2) var(--space-1);
+    }
+
+    .header-content {
+        gap: var(--space-1);
+    }
+
+    .logo-compact {
+        height: 28px; /* Even smaller on very small screens */
+    }
+
+    .usage-counter {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+
+    .user-menu-button {
+        padding: 4px 8px;
+        font-size: 13px;
+    }
+
+    .user-icon {
+        font-size: 14px;
+    }
+
+    .dropdown-arrow {
+        font-size: 8px;
+    }
+
+    .btn-logout {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+
+    .user-dropdown {
+        right: -8px;
+        min-width: 220px;
+    }
+
+    .dropdown-email {
+        font-size: 13px;
+    }
+
+    .dropdown-item {
+        font-size: 13px;
+        padding: var(--space-1);
+    }
+}
+
 /* App Footer */
 .app-footer {
     background: var(--gray-800);
