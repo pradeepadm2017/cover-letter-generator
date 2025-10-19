@@ -1448,9 +1448,31 @@ button:disabled {
         line-height: 1.4;
     }
 
+    /* Comparison Grid - Enhanced mobile styling */
     .comparison-grid {
         grid-template-columns: 1fr;
-        gap: var(--space-3);
+        gap: var(--space-4); /* Increased gap from 24px to 32px for better separation */
+        max-width: 100%;
+    }
+
+    .comparison-card {
+        padding: var(--space-3); /* Reduced from 25px to 24px for mobile */
+    }
+
+    .comparison-card h3 {
+        font-size: 1.125rem; /* Reduced from 1.25rem for mobile */
+        margin-bottom: var(--space-2); /* Consistent spacing */
+    }
+
+    .comparison-card ul li {
+        font-size: 0.875rem; /* Reduced from 0.95rem for mobile */
+        line-height: 1.6; /* Improved line height for readability */
+        padding: var(--space-1) 0; /* Consistent spacing */
+    }
+
+    .comparison-card ul li:last-child {
+        font-size: 0.95rem; /* Slightly larger for emphasis, reduced from 1.05rem */
+        padding-top: var(--space-2);
     }
 
     .steps-grid {
