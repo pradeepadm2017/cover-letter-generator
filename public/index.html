@@ -374,10 +374,7 @@
                 <div class="footer-section">
                     <h4>Support</h4>
                     <ul class="footer-links">
-                        <li><a href="mailto:pradeepadm2017@gmail.com">Contact Us</a></li>
-                        <li><a href="tel:+14313370047">431-337-0047</a></li>
-                        <li><a href="mailto:pradeepadm2017@gmail.com">Help Center</a></li>
-                        <li><a href="mailto:pradeepadm2017@gmail.com">Report an Issue</a></li>
+                        <li><a href="mailto:customersupport@fastcoverletters.com">Contact Support</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
@@ -457,6 +454,10 @@
             mobileMenu.classList.toggle('active');
             overlay.classList.toggle('active');
             hamburger.classList.toggle('active');
+
+            // Update aria-expanded for accessibility
+            const isExpanded = mobileMenu.classList.contains('active');
+            hamburger.setAttribute('aria-expanded', isExpanded);
 
             // Prevent body scroll when menu is open
             if (mobileMenu.classList.contains('active')) {
