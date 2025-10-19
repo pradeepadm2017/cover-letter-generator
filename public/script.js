@@ -380,6 +380,42 @@ function hideLoading() {
     document.getElementById('loading-message').textContent = 'Processing...';
     document.getElementById('loading-submessage').textContent = '';
     hideProgressIndicator();
+    // Hide close button when modal is closed
+    const closeBtn = document.getElementById('loading-close-btn');
+    if (closeBtn) closeBtn.classList.add('hidden');
+    // Reset spinner visibility for next use
+    const spinner = document.querySelector('.spinner');
+    if (spinner) {
+        spinner.style.display = 'block';
+    }
+}
+
+function showLoadingCloseButton() {
+    const loadingDiv = document.getElementById('loading');
+    let closeBtn = document.getElementById('loading-close-btn');
+
+    // Hide the spinner
+    const spinner = document.querySelector('.spinner');
+    if (spinner) {
+        spinner.style.display = 'none';
+    }
+
+    // Update message to show completion
+    document.getElementById('loading-message').textContent = 'Complete!';
+    document.getElementById('loading-submessage').textContent = 'All cover letters have been generated successfully.';
+
+    // Create close button if it doesn't exist
+    if (!closeBtn) {
+        closeBtn = document.createElement('button');
+        closeBtn.id = 'loading-close-btn';
+        closeBtn.className = 'loading-close-btn';
+        closeBtn.textContent = 'Close';
+        closeBtn.onclick = hideLoading;
+        loadingDiv.appendChild(closeBtn);
+    }
+
+    // Show the close button
+    closeBtn.classList.remove('hidden');
 }
 
 // Progress Indicator Functions
@@ -1202,10 +1238,8 @@ async function generateAllCoverLetters() {
         // Complete all progress steps
         completeAllProgress();
 
-        // Hide loading after a short delay to show completed state
-        setTimeout(() => {
-            hideLoading();
-        }, 1500);
+        // Show close button instead of auto-hiding
+        showLoadingCloseButton();
 
     } catch (error) {
         console.error('Generation error:', error);
