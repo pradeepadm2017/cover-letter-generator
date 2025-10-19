@@ -2804,7 +2804,7 @@ input[type="number"].success:focus {
     font-size: var(--text-sm);
     color: var(--gray-700);
     line-height: 1.6;
-    max-height: 100px;
+    max-height: 200px;
     overflow: hidden;
     position: relative;
 }

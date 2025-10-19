@@ -1976,9 +1976,9 @@ async function showResumePreview(resumeId) {
             const wordCount = resumeText.trim().split(/\s+/).length;
             wordCountEl.textContent = `${wordCount} words`;
 
-            // Show first 200 characters
-            const previewText = resumeText.substring(0, 200);
-            previewTextEl.textContent = previewText + (resumeText.length > 200 ? '...' : '');
+            // Show first 500 characters (approximately 80-100 words)
+            const previewText = resumeText.substring(0, 500);
+            previewTextEl.textContent = previewText + (resumeText.length > 500 ? '...' : '');
 
             previewEl.classList.remove('hidden');
         }
