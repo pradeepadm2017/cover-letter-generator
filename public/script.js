@@ -1909,6 +1909,15 @@ async function loadSavedResumes() {
                     select.appendChild(option);
                 });
                 console.log('✅ loadSavedResumes: Successfully populated dropdown');
+
+                // Update resume count status
+                updateResumeCountStatus(userResumes.length);
+
+                // Show preview for default resume if exists
+                const defaultResume = userResumes.find(r => r.is_default);
+                if (defaultResume) {
+                    showResumePreview(defaultResume.id);
+                }
             }
         } else {
             console.error('❌ loadSavedResumes: Failed to load saved resumes - status:', response.status);
@@ -1916,6 +1925,7 @@ async function loadSavedResumes() {
             if (select) {
                 select.innerHTML = '<option value="">Error loading resumes</option>';
             }
+            updateResumeCountStatus(0);
         }
     } catch (error) {
         console.error('❌ loadSavedResumes: Error:', error);
@@ -1923,6 +1933,57 @@ async function loadSavedResumes() {
         if (select) {
             select.innerHTML = '<option value="">Error loading resumes</option>';
         }
+        updateResumeCountStatus(0);
+    }
+}
+
+// Update resume count status message
+function updateResumeCountStatus(count) {
+    const statusEl = document.getElementById('resume-count-status');
+    if (!statusEl) return;
+
+    if (count === 0) {
+        statusEl.textContent = 'No saved resumes.';
+    } else if (count === 1) {
+        statusEl.textContent = 'You have 1 saved resume.';
+    } else {
+        statusEl.textContent = `You have ${count} saved resumes.`;
+    }
+}
+
+// Show preview of selected resume
+async function showResumePreview(resumeId) {
+    if (!resumeId) {
+        // Hide preview if no resume selected
+        document.getElementById('resume-preview').classList.add('hidden');
+        return;
+    }
+
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`/api/user/resumes/${resumeId}/text`, { headers });
+
+        if (response.ok) {
+            const data = await response.json();
+            const resumeText = data.resume_text;
+
+            // Show preview
+            const previewEl = document.getElementById('resume-preview');
+            const previewTextEl = document.getElementById('resume-preview-text');
+            const wordCountEl = document.getElementById('resume-word-count');
+
+            // Calculate word count
+            const wordCount = resumeText.trim().split(/\s+/).length;
+            wordCountEl.textContent = `${wordCount} words`;
+
+            // Show first 200 characters
+            const previewText = resumeText.substring(0, 200);
+            previewTextEl.textContent = previewText + (resumeText.length > 200 ? '...' : '');
+
+            previewEl.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading resume preview:', error);
     }
 }
 
@@ -2238,6 +2299,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         loadUserData();
         await loadSavedResumes(); // Load saved resumes for the dropdown
         initFormInputUX(); // Initialize form input UX improvements
+        initResumeTabEnhancements(); // Initialize resume tab enhancements
     } catch (error) {
         console.error('Error initializing app:', error);
         // Show a fallback option if resumes fail to load
@@ -2247,6 +2309,46 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 });
+
+// Initialize resume tab enhancements
+function initResumeTabEnhancements() {
+    // Add event listener for resume selection change
+    const resumeSelect = document.getElementById('saved-resume-select');
+    if (resumeSelect) {
+        resumeSelect.addEventListener('change', function() {
+            showResumePreview(this.value);
+        });
+    }
+
+    // Add drag & drop handlers for file upload
+    const dropZone = document.getElementById('file-drop-zone');
+    if (dropZone) {
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const resumeFileInput = document.getElementById('resume-file');
+                resumeFileInput.files = files;
+                handleResumeFileUpload(resumeFileInput);
+            }
+        });
+    }
+}
 
 // ====================================
 // FORM INPUT UX IMPROVEMENTS

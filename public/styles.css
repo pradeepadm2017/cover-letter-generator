@@ -478,6 +478,14 @@ textarea.success:focus {
     background-color: #eff6ff;
 }
 
+/* Drag over state */
+.file-upload-area.drag-over {
+    border-color: var(--primary);
+    background-color: #dbeafe;
+    border-width: 3px;
+    transform: scale(1.02);
+}
+
 .file-upload-label {
     display: flex;
     flex-direction: column;
@@ -488,6 +496,22 @@ textarea.success:focus {
 
 .upload-icon {
     font-size: 48px;
+    transition: transform 0.3s ease;
+}
+
+.file-upload-area.drag-over .upload-icon {
+    transform: scale(1.2);
+}
+
+.file-upload-text {
+    font-size: var(--text-base);
+    color: var(--gray-700);
+    line-height: 1.5;
+}
+
+.file-upload-text strong {
+    color: var(--primary);
+    font-weight: 600;
 }
 
 #file-name {
@@ -2742,6 +2766,57 @@ input[type="number"].success:focus {
 
 .resume-info-text a:hover {
     text-decoration: underline;
+}
+
+/* Resume Preview */
+.resume-preview {
+    background: white;
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    padding: var(--space-3);
+    margin-top: var(--space-2);
+}
+
+.resume-preview.hidden {
+    display: none;
+}
+
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.preview-header strong {
+    color: var(--gray-900);
+    font-size: var(--text-sm);
+}
+
+.preview-meta {
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+}
+
+.preview-text {
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+    line-height: 1.6;
+    max-height: 100px;
+    overflow: hidden;
+    position: relative;
+}
+
+.preview-text::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: linear-gradient(to bottom, transparent, white);
 }
 
 /* Manage Resumes Modal */

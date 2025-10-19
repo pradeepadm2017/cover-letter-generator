@@ -65,10 +65,24 @@
                                     <option value="">Loading resumes...</option>
                                 </select>
                                 <button type="button" class="btn-secondary manage-resumes-btn" onclick="toggleManageResumesModal()">
-                                    Manage Resumes
+                                    📝 Manage Resumes
                                 </button>
                             </div>
-                            <p class="resume-info-text">Select a resume from your saved resumes or <a href="#" onclick="event.preventDefault(); switchResumeTab('file');">upload a new one</a></p>
+
+                            <!-- Resume Preview -->
+                            <div id="resume-preview" class="resume-preview hidden">
+                                <div class="preview-header">
+                                    <strong>Preview:</strong>
+                                    <span id="resume-word-count" class="preview-meta"></span>
+                                </div>
+                                <div id="resume-preview-text" class="preview-text"></div>
+                            </div>
+
+                            <p class="resume-info-text">
+                                <span id="resume-count-status">No saved resumes.</span>
+                                <a href="#" onclick="event.preventDefault(); switchResumeTab('file');">Upload a new resume</a> or
+                                <a href="#" onclick="event.preventDefault(); switchResumeTab('text');">paste one</a>.
+                            </p>
                         </div>
                     </div>
                     <div id="text-resume-tab" class="resume-tab hidden">
@@ -90,7 +104,7 @@
                         </div>
                     </div>
                     <div id="file-resume-tab" class="resume-tab hidden">
-                        <div class="file-upload-area">
+                        <div class="file-upload-area" id="file-drop-zone">
                             <input
                                 type="file"
                                 id="resume-file"
@@ -99,9 +113,11 @@
                                 onchange="handleResumeFileUpload(this)"
                             >
                             <label for="resume-file" class="file-upload-label">
-                                <span class="upload-icon">📎</span>
-                                <span id="file-name">Click to upload or drag & drop</span>
-                                <span class="file-types">Supports: DOC, DOCX, TXT</span>
+                                <span class="upload-icon">📄</span>
+                                <span id="file-name" class="file-upload-text">
+                                    <strong>Click to upload</strong> or drag & drop your resume here
+                                </span>
+                                <span class="file-types">Supports: DOC, DOCX, TXT (max 10MB)</span>
                             </label>
                             <div id="file-status" class="file-status hidden"></div>
                         </div>

@@ -2,7 +2,7 @@
 
 **Last Updated:** January 19, 2025
 **Total Estimated Time:** ~25 hours
-**Completed:** 18/25 items (72%)
+**Completed:** 19/25 items (76%)
 
 ---
 
@@ -644,25 +644,45 @@ Apply consistently to cards, modals, dropdowns
 ---
 
 ### 18. Improve Resume Tab System
-**Status:** ❌ Not Started
-**Time:** 1.5 hours
+**Status:** ✅ Done (January 19, 2025)
+**Time:** 1.5 hours (Actual: 1 hour)
 **Impact:** Medium - Streamlines workflow
 
 **Current Issues:**
-- Three tabs take up space
-- Tab pattern not ideal for this use case
+- No preview of selected resume ✅ Fixed
+- Drag & drop not obvious ✅ Fixed
+- No resume count feedback ✅ Fixed
 
 **Changes:**
-- Default to saved resumes with prominent "+ New Resume" button
-- Clicking "+ New Resume" opens modal with upload/paste options
-- Show resume thumbnails/previews
-- Drag & drop zone more obvious
-- Quick preview of selected resume (first 100 chars)
+- Quick preview of selected resume (first 200 chars) ✅
+- Enhanced drag & drop visual feedback ✅
+- Resume count status message ✅
+- Improved "Manage Resumes" button with icon ✅
+- Better file upload instructions ✅
 
 **Files to modify:**
-- `public/app.html` - Resume UI restructure
-- `public/styles.css` - New resume UI
-- `public/script.js` - Modal logic
+- `public/app.html` - Resume UI enhancements ✅
+- `public/styles.css` - Resume preview and drag styles ✅
+- `public/script.js` - Preview and drag-drop logic ✅
+
+**Implementation Notes:**
+- Added resume preview box that shows when a resume is selected
+- Preview displays first 200 characters with fade-out gradient
+- Word count displayed in preview header (e.g., "450 words")
+- Resume count status shows "You have X saved resumes" dynamically
+- Preview automatically shows for default resume on page load
+- Preview updates when user selects different resume from dropdown
+- Enhanced drag & drop zone with visual feedback:
+  - Hover: Blue border + light blue background
+  - Drag-over: Thicker border (3px), darker background, scale(1.02), icon grows
+  - Upload icon scales to 1.2x when dragging file over
+- Improved upload instructions: "Click to upload or drag & drop your resume here"
+- Added file size limit display: "max 10MB"
+- Changed upload icon from 📎 to 📄 for better clarity
+- Manage Resumes button now has 📝 emoji for better visibility
+- Added drag & drop event handlers (dragover, dragleave, drop)
+- Prevented default browser file opening on drop
+- All changes use design system: CSS variables, spacing grid, typography scale
 
 ---
 
