@@ -1398,6 +1398,35 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
+    /* Stats Section - Enhanced mobile styling for very small screens */
+    .stats-section {
+        padding: var(--space-6) var(--space-3);
+    }
+
+    .stats-grid {
+        gap: var(--space-4); /* Increased spacing between stats */
+        max-width: 100%;
+    }
+
+    .stat-card {
+        padding: var(--space-4) var(--space-3);
+    }
+
+    .stat-icon {
+        font-size: 2rem; /* Reduced from 2.5rem for small screens */
+        margin-bottom: var(--space-1);
+    }
+
+    .stat-number {
+        font-size: 1.75rem; /* Further reduced from 2rem for small screens */
+        margin-bottom: var(--space-1);
+    }
+
+    .stat-label {
+        font-size: 0.875rem; /* Slightly smaller text */
+        line-height: 1.4;
+    }
+
     .comparison-grid {
         grid-template-columns: 1fr;
         gap: var(--space-3);
