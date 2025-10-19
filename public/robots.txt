@@ -1,0 +1,9 @@
+# robots.txt for FastCoverLetters.com
+
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://fastcoverletters.com/sitemap.xml
