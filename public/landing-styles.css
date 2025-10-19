@@ -1212,7 +1212,7 @@ button:disabled {
     .btn-primary,
     .btn-large {
         width: 100%;
-        max-width: 100%;
+        max-width: 320px;
     }
 
     .hero-visual {
@@ -1954,30 +1954,31 @@ button:disabled {
 
     /* Demo Flow - Mobile adjustments */
     .demo-flow {
-        gap: var(--space-2);
-        padding: var(--space-3);
+        gap: var(--space-1);
+        padding: var(--space-2);
+        max-width: 100%;
     }
 
     .flow-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 1.5rem;
+        width: 44px;
+        height: 44px;
+        font-size: 1.35rem;
     }
 
     .flow-label {
-        font-size: 0.65rem;
+        font-size: 0.625rem;
     }
 
     .flow-arrow {
-        font-size: 1.2rem;
+        font-size: 1rem;
     }
 
     .demo-tagline {
-        padding: 8px var(--space-3);
+        padding: 6px var(--space-2);
     }
 
     .tagline-text {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
     }
 
     /* Footer - Mobile responsive */
