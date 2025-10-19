@@ -1640,7 +1640,7 @@ button:disabled {
 
 /* How It Works Section */
 .how-it-works {
-    padding: var(--space-10) var(--space-3);
+    padding: var(--space-8) var(--space-3);
     background: var(--gray-50);
 }
 
@@ -1656,7 +1656,7 @@ button:disabled {
     text-align: center;
     font-size: var(--text-xl);
     color: var(--gray-600);
-    margin-bottom: var(--space-8);
+    margin-bottom: var(--space-6);
     font-weight: 400;
 }
 
@@ -1665,13 +1665,13 @@ button:disabled {
     grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
     gap: var(--space-3);
     max-width: 1400px;
-    margin: 0 auto var(--space-8) auto;
+    margin: 0 auto var(--space-6) auto;
     align-items: center;
 }
 
 .step {
     background: white;
-    padding: var(--space-6);
+    padding: var(--space-5);
     border-radius: 16px;
     text-align: center;
     box-shadow: var(--shadow-md);
@@ -1681,7 +1681,7 @@ button:disabled {
 }
 
 .step:hover {
-    transform: translateY(-8px);
+    transform: translateY(-4px);
     box-shadow: var(--shadow-xl);
     border-color: var(--primary-light);
 }
@@ -1741,8 +1741,8 @@ button:disabled {
 
 .how-it-works-cta {
     text-align: center;
-    margin-top: var(--space-8);
-    padding-top: var(--space-8);
+    margin-top: var(--space-6);
+    padding-top: var(--space-5);
     border-top: 1px solid var(--gray-200);
 }
 
