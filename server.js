@@ -580,13 +580,18 @@ app.post('/api/user/resumes', ensureAuthenticated, upload.single('resume'), asyn
     // Validate file type
     if (!['.doc', '.docx', '.txt'].includes(fileExtension)) {
       return res.status(400).json({
-        error: 'Invalid file type. Only DOC, DOCX, and TXT files are supported.'
+        error: 'Invalid file type. Only DOC, DOCX, and TXT files are supported.',
+        message: `File type "${fileExtension}" is not supported. Please upload a DOC, DOCX, or TXT file.`
       });
     }
 
     // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
-      return res.status(400).json({ error: 'File size exceeds 10MB limit' });
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      return res.status(400).json({
+        error: 'File size exceeds 10MB limit',
+        message: `File is too large (${fileSizeMB}MB). Maximum size is 10MB. Try compressing the file or removing images.`
+      });
     }
 
     let resumeText = '';
@@ -603,7 +608,10 @@ app.post('/api/user/resumes', ensureAuthenticated, upload.single('resume'), asyn
     }
 
     if (!resumeText || !resumeText.trim()) {
-      return res.status(400).json({ error: 'Could not extract text from the resume file' });
+      return res.status(400).json({
+        error: 'Could not extract text from the resume file',
+        message: 'Unable to read text from your resume. Try uploading a DOCX or TXT file, or copy-paste your resume text directly.'
+      });
     }
 
     // Create resume record
@@ -626,10 +634,16 @@ app.post('/api/user/resumes', ensureAuthenticated, upload.single('resume'), asyn
 
     // Check for specific error messages
     if (error.message && error.message.includes('Maximum 10 resumes')) {
-      return res.status(400).json({ error: 'Maximum 10 resumes allowed per user' });
+      return res.status(400).json({
+        error: 'Maximum 10 resumes allowed per user',
+        message: 'You\'ve reached the maximum of 10 saved resumes. Please delete an old resume before adding a new one.'
+      });
     }
     if (error.message && error.message.includes('duplicate key')) {
-      return res.status(400).json({ error: 'A resume with this nickname already exists' });
+      return res.status(400).json({
+        error: 'A resume with this nickname already exists',
+        message: 'A resume with this nickname already exists. Please choose a different nickname or update the existing resume.'
+      });
     }
 
     res.status(500).json({ error: 'Failed to upload resume' });
@@ -747,7 +761,8 @@ app.post('/api/upload-resume', upload.single('resume'), async (req, res) => {
 
     if (!resumeText || resumeText.trim().length < 50) {
       return res.status(400).json({
-        error: 'Could not extract text from file or content too short'
+        error: 'Could not extract text from file or content too short',
+        message: 'Unable to read your resume file. Try uploading a DOCX or TXT file, or copy-paste your resume text directly instead.'
       });
     }
 
@@ -1239,7 +1254,10 @@ app.post('/api/generate-cover-letters', ensureAuthenticated, async (req, res) =>
 
     if (!resume || !jobUrls || !Array.isArray(jobUrls) || jobUrls.length === 0) {
       console.error('❌ Validation failed - Resume:', !!resume, 'JobUrls:', Array.isArray(jobUrls), jobUrls?.length);
-      return res.status(400).json({ error: 'Resume and job URLs are required' });
+      return res.status(400).json({
+        error: 'Resume and job URLs are required',
+        message: 'Please provide your resume and at least one job description to generate cover letters.'
+      });
     }
 
     // Fetch user profile for header settings

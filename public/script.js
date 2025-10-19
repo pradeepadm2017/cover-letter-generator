@@ -315,7 +315,13 @@ async function handleResumeFileUpload(input) {
         // Improve error message for common issues
         let errorMsg = error.message;
         if (errorMsg.includes('DOMMatrix') || errorMsg.includes('Failed to process file')) {
-            errorMsg = 'Unable to process this file. Please use DOC, DOCX, or TXT format, or copy and paste your resume text instead.';
+            errorMsg = 'Unable to process this file. Try a DOCX or TXT file, or copy-paste your resume text below instead.';
+        } else if (errorMsg.includes('Could not extract text')) {
+            errorMsg = 'Unable to read this file format. Try uploading a DOCX or TXT file, or copy-paste your resume text below.';
+        } else if (errorMsg.includes('File size')) {
+            errorMsg = 'File too large (max 10MB). Try compressing it or copy-paste your resume text below.';
+        } else if (errorMsg.includes('Unsupported')) {
+            errorMsg = 'File format not supported. Please use DOCX or TXT format, or copy-paste your resume text below.';
         }
         fileStatus.textContent = `✕ ${errorMsg}`;
         resumeText = '';
@@ -505,13 +511,131 @@ function completeAllProgress() {
     document.getElementById('progress-bar-fill').style.width = '100%';
 }
 
-function showError(message) {
+/**
+ * Helper function to provide user-friendly, actionable error messages
+ * @param {string} errorMessage - The error message from the server or client
+ * @returns {object} - { message: string, actionText: string, actionCallback: function }
+ */
+function getActionableError(errorMessage) {
+    const errors = {
+        // Resume errors
+        'Resume and job URLs are required': {
+            message: 'Missing resume or job descriptions. Please make sure you\'ve uploaded your resume and added at least one job.',
+            actionText: 'Check Resume',
+            actionCallback: () => document.getElementById('resume-upload')?.scrollIntoView({ behavior: 'smooth' })
+        },
+        'Could not extract text from file': {
+            message: 'Unable to read your resume file. Try uploading a DOCX or TXT file instead, or copy-paste your resume text directly.',
+            actionText: 'Try Again',
+            actionCallback: () => document.getElementById('resume-textarea')?.focus()
+        },
+        'File size exceeds 10MB limit': {
+            message: 'Resume file is too large (max 10MB). Try compressing it or use copy-paste instead.',
+            actionText: 'Use Text',
+            actionCallback: () => document.getElementById('resume-textarea')?.focus()
+        },
+
+        // Profile errors
+        'Complete Your Profile': {
+            message: 'Required profile fields are missing. Add your name, email, and phone to continue.',
+            actionText: 'Open Profile',
+            actionCallback: toggleProfileSettingsModal
+        },
+        'Invalid email format': {
+            message: 'Email format is incorrect. Example: john@example.com',
+            actionText: 'Fix Email',
+            actionCallback: () => {
+                toggleProfileSettingsModal();
+                setTimeout(() => document.getElementById('profile-email')?.focus(), 300);
+            }
+        },
+        'Invalid phone number': {
+            message: 'Phone number must be 10-15 digits. Examples: (555) 123-4567 or 555-123-4567',
+            actionText: 'Fix Phone',
+            actionCallback: () => {
+                toggleProfileSettingsModal();
+                setTimeout(() => document.getElementById('profile-phone')?.focus(), 300);
+            }
+        },
+
+        // Usage limit errors
+        'Usage limit reached': {
+            message: 'Monthly limit reached. Use a promo code to continue generating cover letters.',
+            actionText: 'Enter Code',
+            actionCallback: togglePromoCodeModal
+        },
+
+        // Job description errors
+        'Job description too short': {
+            message: 'Job description is too brief (needs 100+ characters). Please paste the full job posting.',
+            actionText: null,
+            actionCallback: null
+        },
+
+        // Network errors
+        'Failed to fetch': {
+            message: 'Connection error. Check your internet and try again.',
+            actionText: 'Retry',
+            actionCallback: () => window.location.reload()
+        },
+        'NetworkError': {
+            message: 'Connection error. Check your internet and try again.',
+            actionText: 'Retry',
+            actionCallback: () => window.location.reload()
+        }
+    };
+
+    // Find matching error
+    for (const [key, value] of Object.entries(errors)) {
+        if (errorMessage && errorMessage.includes(key)) {
+            return value;
+        }
+    }
+
+    // Default fallback
+    return {
+        message: errorMessage || 'An unexpected error occurred. Please try again or contact support if the problem persists.',
+        actionText: null,
+        actionCallback: null
+    };
+}
+
+function showError(message, actionText = null, actionCallback = null) {
     const errorDiv = document.getElementById('error-message');
-    errorDiv.textContent = message;
+
+    // If message is a raw error, try to make it actionable
+    if (!actionText && !actionCallback) {
+        const actionableError = getActionableError(message);
+        message = actionableError.message;
+        actionText = actionableError.actionText;
+        actionCallback = actionableError.actionCallback;
+    }
+
+    // Clear any existing content
+    errorDiv.innerHTML = '';
+
+    // Create message text
+    const messageText = document.createElement('span');
+    messageText.textContent = message;
+    errorDiv.appendChild(messageText);
+
+    // Add action button if provided
+    if (actionText && actionCallback) {
+        const actionBtn = document.createElement('button');
+        actionBtn.textContent = actionText;
+        actionBtn.className = 'error-action-btn';
+        actionBtn.style.cssText = 'margin-left: 12px; padding: 4px 12px; background: white; color: #dc2626; border: 1px solid white; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;';
+        actionBtn.onclick = () => {
+            errorDiv.classList.add('hidden');
+            actionCallback();
+        };
+        errorDiv.appendChild(actionBtn);
+    }
+
     errorDiv.classList.remove('hidden');
     setTimeout(() => {
         errorDiv.classList.add('hidden');
-    }, 5000);
+    }, 8000); // Extended to 8 seconds for actionable errors
 }
 
 // Show alert modal popup
@@ -1084,8 +1208,25 @@ async function generateAllCoverLetters() {
         }, 1500);
 
     } catch (error) {
-        showError('Unable to generate cover letters. Please check your inputs and try again.');
+        console.error('Generation error:', error);
         hideLoading();
+
+        // Provide specific error messages based on error type
+        let errorMsg = 'Unable to generate cover letters.';
+
+        if (error.message) {
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                errorMsg = 'Connection error. Check your internet connection and try again.';
+            } else if (error.message.includes('Not authenticated')) {
+                errorMsg = 'Session expired. Please refresh the page and log in again.';
+            } else if (error.message.includes('timeout')) {
+                errorMsg = 'Request timed out. The job descriptions may be too long. Try with fewer jobs or shorter descriptions.';
+            } else {
+                errorMsg = error.message;
+            }
+        }
+
+        showError(errorMsg);
     } finally {
         // Refresh usage counter after generation
         await loadUsageCounter();
@@ -2044,12 +2185,12 @@ async function uploadNewResume() {
     clearUploadError();
 
     if (!nickname) {
-        showUploadError('Please enter a nickname for your resume.');
+        showUploadError('Please enter a nickname for your resume (e.g., "Software Engineer Resume" or "Marketing Resume").');
         return;
     }
 
     if (!file) {
-        showUploadError('Please select a file to upload.');
+        showUploadError('Please select a file to upload. Click "Choose File" or drag and drop a resume file.');
         return;
     }
 
@@ -2057,13 +2198,14 @@ async function uploadNewResume() {
     const allowedTypes = ['.doc', '.docx', '.txt'];
     const fileExt = '.' + file.name.split('.').pop().toLowerCase();
     if (!allowedTypes.includes(fileExt)) {
-        showUploadError('Only DOC, DOCX, and TXT files are supported.');
+        showUploadError(`File type "${fileExt}" is not supported. Please use DOC, DOCX, or TXT format.`);
         return;
     }
 
     // Validate file size (10MB)
     if (file.size > 10 * 1024 * 1024) {
-        showUploadError('File size must be less than 10MB.');
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        showUploadError(`File is too large (${fileSizeMB}MB). Maximum size is 10MB. Try compressing the file or remove images.`);
         return;
     }
 
