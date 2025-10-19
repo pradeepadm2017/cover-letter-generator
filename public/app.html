@@ -72,11 +72,22 @@
                         </div>
                     </div>
                     <div id="text-resume-tab" class="resume-tab hidden">
-                        <textarea
-                            id="resume"
-                            placeholder="Paste your resume here..."
-                            rows="10"
-                        ></textarea>
+                        <div class="field-wrapper">
+                            <textarea
+                                id="resume"
+                                placeholder="Paste your resume here..."
+                                rows="10"
+                                maxlength="50000"
+                            ></textarea>
+                            <div class="character-counter" id="resume-char-counter">
+                                <span id="resume-char-count">0</span> / 50,000 characters
+                            </div>
+                            <div class="help-text">
+                                <span class="help-text-icon">💡</span>
+                                <span>Paste your full resume here. The AI will use this to tailor your cover letters to match your experience and skills.</span>
+                            </div>
+                            <div class="validation-message hidden" id="resume-validation"></div>
+                        </div>
                     </div>
                     <div id="file-resume-tab" class="resume-tab hidden">
                         <div class="file-upload-area">
@@ -121,7 +132,17 @@
 
             <!-- URL Mode -->
             <div id="url-mode-section" class="form-section hidden">
-                <h2>Job URLs</h2>
+                <div style="display: flex; align-items: center; margin-bottom: var(--space-3);">
+                    <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">Job URLs</h2>
+                    <div class="tooltip-wrapper">
+                        <span class="tooltip-trigger">?</span>
+                        <div class="tooltip-content">Paste job posting links from Indeed, LinkedIn, etc.</div>
+                    </div>
+                </div>
+                <div class="help-text" style="margin-bottom: var(--space-3);">
+                    <span class="help-text-icon">💡</span>
+                    <span>Enter job posting URLs and we'll automatically extract the job title, company, and description. Works with Indeed, LinkedIn, Glassdoor, and most job boards.</span>
+                </div>
                 <div id="job-urls-container">
                     <div class="job-url-input" data-index="0">
                         <div class="url-input-wrapper">
@@ -167,8 +188,9 @@
                             class="manual-job-company"
                             style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; font-size: 14px;"
                         >
-                        <textarea
-                            placeholder="Paste the full job description here...
+                        <div class="field-wrapper" style="margin-bottom: 0;">
+                            <textarea
+                                placeholder="Paste the full job description here...
 
 Example:
 We are seeking an experienced Senior Software Engineer...
@@ -180,10 +202,16 @@ Responsibilities:
 Requirements:
 - 5+ years of experience...
 - Strong knowledge of..."
-                            class="manual-job-description"
-                            rows="12"
-                            style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical;"
-                        ></textarea>
+                                class="manual-job-description"
+                                rows="12"
+                                maxlength="30000"
+                                style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical;"
+                            ></textarea>
+                            <div class="character-counter manual-job-char-counter">
+                                <span class="manual-job-char-count">0</span> / 30,000 characters
+                            </div>
+                            <div class="validation-message hidden manual-job-validation"></div>
+                        </div>
                     </div>
                 </div>
                 <button type="button" id="add-manual-btn" onclick="addManualJob()">

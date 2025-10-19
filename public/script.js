@@ -2040,6 +2040,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateGenerateButtonState();
         loadUserData();
         await loadSavedResumes(); // Load saved resumes for the dropdown
+        initFormInputUX(); // Initialize form input UX improvements
     } catch (error) {
         console.error('Error initializing app:', error);
         // Show a fallback option if resumes fail to load
@@ -2049,3 +2050,295 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 });
+
+// ====================================
+// FORM INPUT UX IMPROVEMENTS
+// ====================================
+
+/**
+ * Initialize all form input UX improvements:
+ * - Character counters for textareas
+ * - Real-time validation feedback
+ * - Enhanced focus states
+ */
+function initFormInputUX() {
+    console.log('Initializing form input UX improvements...');
+
+    // Initialize character counter for resume textarea
+    const resumeTextarea = document.getElementById('resume');
+    if (resumeTextarea) {
+        setupCharacterCounter(
+            resumeTextarea,
+            'resume-char-count',
+            50000
+        );
+    }
+
+    // Initialize character counters for manual job descriptions
+    updateManualJobCounters();
+
+    // Add validation for profile inputs
+    initProfileInputValidation();
+
+    console.log('Form input UX improvements initialized');
+}
+
+/**
+ * Setup character counter for a textarea
+ * @param {HTMLElement} textarea - The textarea element
+ * @param {string} counterId - ID of the counter display element
+ * @param {number} maxLength - Maximum character length
+ */
+function setupCharacterCounter(textarea, counterId, maxLength) {
+    const counter = document.getElementById(counterId);
+    if (!counter) return;
+
+    const updateCounter = () => {
+        const currentLength = textarea.value.length;
+        counter.textContent = currentLength.toLocaleString();
+
+        // Update counter color based on usage
+        const counterWrapper = counter.parentElement;
+        counterWrapper.classList.remove('warning', 'error');
+
+        const percentUsed = (currentLength / maxLength) * 100;
+        if (percentUsed >= 95) {
+            counterWrapper.classList.add('error');
+        } else if (percentUsed >= 80) {
+            counterWrapper.classList.add('warning');
+        }
+    };
+
+    // Update on input
+    textarea.addEventListener('input', updateCounter);
+
+    // Initial update
+    updateCounter();
+}
+
+/**
+ * Update character counters for all manual job description textareas
+ */
+function updateManualJobCounters() {
+    const jobDescriptions = document.querySelectorAll('.manual-job-description');
+    jobDescriptions.forEach((textarea, index) => {
+        const wrapper = textarea.closest('.field-wrapper');
+        if (!wrapper) return;
+
+        const counter = wrapper.querySelector('.manual-job-char-count');
+        if (!counter) return;
+
+        const updateCounter = () => {
+            const currentLength = textarea.value.length;
+            counter.textContent = currentLength.toLocaleString();
+
+            // Update counter color based on usage
+            const counterWrapper = counter.parentElement;
+            counterWrapper.classList.remove('warning', 'error');
+
+            const percentUsed = (currentLength / 30000) * 100;
+            if (percentUsed >= 95) {
+                counterWrapper.classList.add('error');
+            } else if (percentUsed >= 80) {
+                counterWrapper.classList.add('warning');
+            }
+        };
+
+        // Remove existing listeners by cloning
+        const newTextarea = textarea.cloneNode(true);
+        textarea.parentNode.replaceChild(newTextarea, textarea);
+
+        // Add new listener
+        newTextarea.addEventListener('input', updateCounter);
+
+        // Initial update
+        updateCounter();
+    });
+}
+
+/**
+ * Show validation message for a field
+ * @param {string} validationId - ID of the validation message element
+ * @param {string} message - Message to display
+ * @param {string} type - Type of message: 'error', 'success', or 'warning'
+ */
+function showValidationMessage(validationId, message, type = 'error') {
+    const validationEl = document.getElementById(validationId);
+    if (!validationEl) return;
+
+    // Clear existing classes and add new type
+    validationEl.classList.remove('error', 'success', 'warning', 'hidden');
+    validationEl.classList.add(type);
+
+    // Set icon based on type
+    let icon = '❌';
+    if (type === 'success') icon = '✅';
+    if (type === 'warning') icon = '⚠️';
+
+    // Set content
+    validationEl.innerHTML = `
+        <span class="validation-icon">${icon}</span>
+        <span>${message}</span>
+    `;
+}
+
+/**
+ * Hide validation message
+ * @param {string} validationId - ID of the validation message element
+ */
+function hideValidationMessage(validationId) {
+    const validationEl = document.getElementById(validationId);
+    if (!validationEl) return;
+
+    validationEl.classList.add('hidden');
+}
+
+/**
+ * Validate a textarea field
+ * @param {HTMLElement} textarea - The textarea to validate
+ * @param {number} minLength - Minimum required length
+ * @param {string} fieldName - Name of the field for error messages
+ * @returns {Object} Validation result with isValid and message
+ */
+function validateTextarea(textarea, minLength, fieldName) {
+    const value = textarea.value.trim();
+
+    if (value.length === 0) {
+        return {
+            isValid: false,
+            message: `${fieldName} is required. Please fill in this field.`,
+            type: 'error'
+        };
+    }
+
+    if (value.length < minLength) {
+        return {
+            isValid: false,
+            message: `${fieldName} is too short (${value.length} characters). Please provide at least ${minLength} characters for better results.`,
+            type: 'warning'
+        };
+    }
+
+    return {
+        isValid: true,
+        message: `${fieldName} looks good!`,
+        type: 'success'
+    };
+}
+
+/**
+ * Add real-time validation to a textarea
+ * @param {HTMLElement} textarea - The textarea element
+ * @param {string} validationId - ID of the validation message element
+ * @param {number} minLength - Minimum required length
+ * @param {string} fieldName - Name of the field
+ */
+function addTextareaValidation(textarea, validationId, minLength, fieldName) {
+    if (!textarea) return;
+
+    let validationTimeout;
+
+    const validate = () => {
+        clearTimeout(validationTimeout);
+
+        // Only show validation after user has started typing
+        if (textarea.value.length === 0) {
+            hideValidationMessage(validationId);
+            textarea.classList.remove('error', 'success');
+            return;
+        }
+
+        // Debounce validation by 500ms
+        validationTimeout = setTimeout(() => {
+            const result = validateTextarea(textarea, minLength, fieldName);
+
+            // Update textarea styling
+            textarea.classList.remove('error', 'success');
+            if (!result.isValid) {
+                textarea.classList.add('error');
+            } else {
+                textarea.classList.add('success');
+            }
+
+            // Show validation message
+            showValidationMessage(validationId, result.message, result.type);
+        }, 500);
+    };
+
+    textarea.addEventListener('input', validate);
+    textarea.addEventListener('blur', validate);
+}
+
+/**
+ * Initialize profile input validation with better feedback
+ */
+function initProfileInputValidation() {
+    // Add validation to email input in profile settings
+    const profileEmail = document.getElementById('profile-email');
+    if (profileEmail) {
+        profileEmail.addEventListener('blur', function() {
+            const email = this.value.trim();
+            if (email && !isValidEmail(email)) {
+                this.classList.add('error');
+                this.classList.remove('success');
+            } else if (email) {
+                this.classList.add('success');
+                this.classList.remove('error');
+            } else {
+                this.classList.remove('error', 'success');
+            }
+        });
+
+        profileEmail.addEventListener('input', function() {
+            // Clear error state while typing
+            if (this.classList.contains('error')) {
+                this.classList.remove('error');
+            }
+        });
+    }
+
+    // Add validation to phone input
+    const profilePhone = document.getElementById('profile-phone');
+    if (profilePhone) {
+        profilePhone.addEventListener('blur', function() {
+            const phone = this.value.trim();
+            if (phone && phone.length < 10) {
+                this.classList.add('error');
+                this.classList.remove('success');
+            } else if (phone) {
+                this.classList.add('success');
+                this.classList.remove('error');
+            } else {
+                this.classList.remove('error', 'success');
+            }
+        });
+
+        profilePhone.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                this.classList.remove('error');
+            }
+        });
+    }
+}
+
+/**
+ * Simple email validation
+ * @param {string} email - Email to validate
+ * @returns {boolean} True if valid
+ */
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+// Update addManualJob function to reinitialize counters
+const originalAddManualJob = window.addManualJob;
+if (typeof originalAddManualJob === 'function') {
+    window.addManualJob = function() {
+        originalAddManualJob();
+        // Reinitialize character counters after adding a new job
+        setTimeout(() => {
+            updateManualJobCounters();
+        }, 100);
+    };
+}

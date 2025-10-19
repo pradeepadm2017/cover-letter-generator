@@ -360,12 +360,29 @@ textarea {
     font-size: 14px;
     font-family: inherit;
     resize: vertical;
-    transition: border-color 0.3s;
+    transition: all 0.2s ease;
 }
 
 textarea:focus {
     outline: none;
     border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+textarea.error {
+    border-color: var(--error);
+}
+
+textarea.error:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+textarea.success {
+    border-color: var(--success);
+}
+
+textarea.success:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 
 .resume-input-options {
@@ -486,12 +503,29 @@ textarea:focus {
     border: 2px solid var(--gray-200);
     border-radius: 8px;
     font-size: 14px;
-    transition: border-color 0.3s;
+    transition: all 0.2s ease;
 }
 
 .job-url:focus {
     outline: none;
     border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.job-url.error {
+    border-color: var(--error);
+}
+
+.job-url.error:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.job-url.success {
+    border-color: var(--success);
+}
+
+.job-url.success:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 
 .url-status {
@@ -1730,12 +1764,29 @@ textarea:focus {
     border: 2px solid var(--gray-200);
     border-radius: 6px;
     font-size: 14px;
-    transition: border-color 0.2s;
+    transition: all 0.2s ease;
 }
 
 .profile-input:focus {
     outline: none;
     border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.profile-input.error {
+    border-color: var(--error);
+}
+
+.profile-input.error:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.profile-input.success {
+    border-color: var(--success);
+}
+
+.profile-input.success:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 
 .profile-input:read-only {
@@ -1751,6 +1802,211 @@ select.profile-input {
     font-size: 12px;
     color: var(--gray-500);
     margin-top: 4px;
+}
+
+/* ====================================
+   FORM INPUT UX IMPROVEMENTS
+   ==================================== */
+
+/* General Input Styles */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="url"],
+input[type="number"] {
+    transition: all 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+input[type="number"]:focus {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+input[type="text"].error,
+input[type="email"].error,
+input[type="tel"].error,
+input[type="url"].error,
+input[type="number"].error {
+    border-color: var(--error) !important;
+}
+
+input[type="text"].error:focus,
+input[type="email"].error:focus,
+input[type="tel"].error:focus,
+input[type="url"].error:focus,
+input[type="number"].error:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+input[type="text"].success,
+input[type="email"].success,
+input[type="tel"].success,
+input[type="url"].success,
+input[type="number"].success {
+    border-color: var(--success) !important;
+}
+
+input[type="text"].success:focus,
+input[type="email"].success:focus,
+input[type="tel"].success:focus,
+input[type="url"].success:focus,
+input[type="number"].success:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Character Counter */
+.character-counter {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-top: 4px;
+    gap: 4px;
+}
+
+.character-counter.warning {
+    color: var(--warning);
+    font-weight: 600;
+}
+
+.character-counter.error {
+    color: var(--error);
+    font-weight: 600;
+}
+
+/* Field Wrapper for Better Organization */
+.field-wrapper {
+    position: relative;
+    margin-bottom: var(--space-3);
+}
+
+/* Help Text */
+.help-text {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--gray-600);
+    margin-top: 6px;
+    padding: 8px 10px;
+    background-color: var(--gray-50);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-light);
+}
+
+.help-text-icon {
+    font-size: 14px;
+    color: var(--primary);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Validation Messages */
+.validation-message {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    margin-top: 6px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.validation-message.error {
+    background-color: var(--error-light);
+    color: var(--error-dark);
+    border: 1px solid var(--error);
+}
+
+.validation-message.success {
+    background-color: var(--success-light);
+    color: var(--success-dark);
+    border: 1px solid var(--success);
+}
+
+.validation-message.warning {
+    background-color: var(--warning-light);
+    color: #92400e;
+    border: 1px solid var(--warning);
+}
+
+.validation-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.validation-message.hidden {
+    display: none;
+}
+
+/* Tooltip */
+.tooltip-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--gray-300);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: help;
+    margin-left: 6px;
+    transition: all 0.2s ease;
+}
+
+.tooltip-trigger:hover {
+    background-color: var(--primary);
+    transform: scale(1.1);
+}
+
+.tooltip-content {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--gray-900);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip-content::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--gray-900);
+}
+
+.tooltip-wrapper:hover .tooltip-content {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Label with Tooltip */
+.label-with-tooltip {
+    display: flex;
+    align-items: center;
 }
 
 /* Template Options */
