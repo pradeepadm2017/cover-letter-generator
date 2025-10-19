@@ -949,6 +949,13 @@ button:disabled {
         padding: var(--space-3);
     }
 
+    /* Override tablet 2-column layout - all cards full width on mobile */
+    .stat-card:last-child {
+        grid-column: auto;
+        max-width: 100%;
+        margin: 0;
+    }
+
     .stat-number {
         font-size: 2rem;
     }
@@ -1410,6 +1417,13 @@ button:disabled {
 
     .stat-card {
         padding: var(--space-4) var(--space-3);
+    }
+
+    /* Ensure all cards are full width on very small screens */
+    .stat-card:last-child {
+        grid-column: auto;
+        max-width: 100%;
+        margin: 0;
     }
 
     .stat-icon {
