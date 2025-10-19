@@ -618,23 +618,65 @@ textarea.success:focus {
 
 .generate-section {
     text-align: center;
+    position: relative;
 }
 
-#generate-all-btn {
-    background-color: var(--primary);
+/* Large Prominent Generate Button */
+.btn-generate-large {
+    background: linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%);
     color: white;
-    font-size: var(--text-base);
-    padding: 15px 30px;
+    font-size: var(--text-lg);
+    font-weight: 600;
+    padding: var(--space-2) var(--space-4);
+    min-height: 56px;
     width: 100%;
+    border: none;
+    border-radius: 12px;
+    box-shadow: var(--shadow-primary);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
 }
 
-#generate-all-btn:hover:not(:disabled) {
-    background-color: var(--primary-dark);
+.btn-generate-large:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    box-shadow: var(--shadow-primary-lg);
+    transform: translateY(-2px);
 }
 
-#generate-all-btn:disabled {
-    background-color: var(--gray-300);
+.btn-generate-large:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+}
+
+.btn-generate-large:disabled {
+    background: var(--gray-300);
+    color: var(--gray-500);
     cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Pulse animation when ready */
+.btn-generate-large.ready {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: var(--shadow-primary);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(37, 99, 235, 0.6), var(--shadow-primary-lg);
+        transform: scale(1.02);
+    }
+}
+
+/* Button text styling */
+#generate-btn-text {
+    display: inline-block;
+    position: relative;
+    z-index: 1;
 }
 
 #cover-letters-container {
@@ -1861,6 +1903,30 @@ textarea.success:focus {
 
     .mode-switcher-link {
         font-size: 13px;
+    }
+
+    /* Generate Button - Sticky on mobile */
+    .generate-section {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: var(--space-2);
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+        margin: 0;
+    }
+
+    .btn-generate-large {
+        font-size: var(--text-base);
+        min-height: 48px;
+        border-radius: 8px;
+    }
+
+    /* Add padding to body to prevent content from being hidden behind sticky button */
+    body {
+        padding-bottom: 80px;
     }
 }
 

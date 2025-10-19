@@ -602,8 +602,38 @@ function getJobUrls() {
 }
 
 function updateGenerateButtonState() {
-    // Button is always enabled now
-    // Validation will be done when user clicks the button and shown as modal
+    const generateBtn = document.getElementById('generate-all-btn');
+    const generateBtnText = document.getElementById('generate-btn-text');
+
+    // Count jobs
+    let jobCount = 0;
+    const urlSection = document.getElementById('url-mode-section');
+    const isUrlMode = !urlSection.classList.contains('hidden');
+
+    if (isUrlMode) {
+        // Count URL inputs that have values
+        const urlInputs = document.querySelectorAll('.job-url');
+        jobCount = Array.from(urlInputs).filter(input => input.value.trim().length > 0).length;
+    } else {
+        // Count manual job cards that have descriptions
+        const manualDescriptions = document.querySelectorAll('.manual-job-description');
+        jobCount = Array.from(manualDescriptions).filter(textarea => textarea.value.trim().length > 0).length;
+    }
+
+    // Update button text dynamically
+    if (jobCount === 0) {
+        generateBtnText.textContent = 'Generate Cover Letters';
+        generateBtn.classList.remove('ready');
+    } else if (jobCount === 1) {
+        generateBtnText.textContent = 'Generate 1 Cover Letter';
+        generateBtn.classList.add('ready');
+    } else {
+        generateBtnText.textContent = `Generate ${jobCount} Cover Letters`;
+        generateBtn.classList.add('ready');
+    }
+
+    // Button is always enabled - validation happens on click
+    generateBtn.disabled = false;
 }
 
 async function getResumeText() {
