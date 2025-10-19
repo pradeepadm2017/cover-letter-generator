@@ -352,6 +352,20 @@ button:disabled {
 .btn-login {
     padding: var(--space-1) var(--space-3);
     font-size: var(--text-sm);
+    background: var(--btn-primary-bg);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow);
+}
+
+.btn-login:hover {
+    background: var(--btn-primary-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-primary);
 }
 
 /* Hamburger Menu Button */
@@ -480,6 +494,22 @@ button:disabled {
 .btn-login-mobile {
     margin-top: 20px;
     width: 100%;
+    padding: var(--space-2) var(--space-4);
+    background: var(--btn-primary-bg);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: var(--text-base);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow);
+}
+
+.btn-login-mobile:hover {
+    background: var(--btn-primary-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-primary);
 }
 
 /* Hero Section - Modern Two-Column Layout */
@@ -1214,6 +1244,25 @@ button:disabled {
     padding: 12px;
     font-size: var(--text-sm);
     margin-bottom: var(--space-3);
+    background: white;
+    color: var(--gray-700);
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+}
+
+.btn-google:hover {
+    background: var(--gray-50);
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 /* Auth Divider */
@@ -1247,6 +1296,20 @@ button:disabled {
     width: 100%;
     padding: 14px;
     font-size: var(--text-sm);
+    background: var(--btn-primary-bg);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow);
+}
+
+.btn-auth:hover {
+    background: var(--btn-primary-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-primary);
 }
 
 /* Auth Success Message */
