@@ -2,7 +2,7 @@
 
 **Last Updated:** January 19, 2025
 **Total Estimated Time:** ~25 hours
-**Completed:** 16/25 items (64%)
+**Completed:** 17/25 items (68%)
 
 ---
 
@@ -607,25 +607,39 @@ Apply consistently to cards, modals, dropdowns
 ---
 
 ### 17. Simplify Job Input Mode Selection
-**Status:** ❌ Not Started
-**Time:** 1 hour
+**Status:** ✅ Done (January 19, 2025)
+**Time:** 1 hour (Actual: 45 minutes)
 **Impact:** Medium - Reduces confusion
 
 **Current Issues:**
-- "Manual" vs "URL" requires too much reading
-- Radio buttons not obvious
-- Takes up too much space
+- "Manual" vs "URL" requires too much reading ✅ Fixed
+- Radio buttons not obvious ✅ Fixed
+- Takes up too much space ✅ Fixed
 
 **Changes:**
-- Default to one mode (based on user history or popularity)
-- Add simple text link: "Or paste job URLs instead →"
-- Mode switcher becomes a link, not big radio toggle
-- Show example in placeholder for current mode
+- Default to manual mode (paste job descriptions) ✅
+- Add simple text link: "Or use job URLs instead →" ✅
+- Mode switcher becomes a link, not big radio toggle ✅
+- Show placeholder examples for current mode (existing) ✅
 
 **Files to modify:**
-- `public/app.html` - Input mode UI
-- `public/styles.css` - Simplified toggle
-- `public/script.js` - Mode switching
+- `public/app.html` - Input mode UI ✅
+- `public/styles.css` - Simplified toggle ✅
+- `public/script.js` - Mode switching (no changes needed) ✅
+
+**Implementation Notes:**
+- Removed bulky radio button toggle that took up entire section width
+- Replaced with minimal text link in section header: "Or use job URLs instead →"
+- Defaults to Manual mode (paste job descriptions) since it's more reliable and recommended
+- Link appears on right side of section header, aligned with H2 heading
+- Bidirectional switching: Manual section shows "Or use job URLs instead →", URL section shows "← Or paste job descriptions instead"
+- Simple hover effect: Link turns darker blue and underlines on hover
+- Mobile responsive: Header and link stack vertically on screens < 640px with 16px gap
+- Link uses primary blue color (var(--primary)) for brand consistency
+- No changes needed to switchInputMode() JavaScript - existing function works perfectly
+- Reduced visual clutter and cognitive load for users
+- Mode switching is now faster and more intuitive
+- Saves ~80px of vertical space by removing large radio button section
 
 ---
 
