@@ -1137,15 +1137,16 @@ button:disabled {
 .form-group input {
     width: 100%;
     padding: 12px;
-    border: 1px solid #ddd;
+    border: 2px solid var(--gray-200);
     border-radius: 8px;
     font-size: var(--text-sm);
-    transition: border-color 0.3s;
+    transition: all 0.2s ease;
 }
 
 .form-group input:focus {
     outline: none;
-    border-color: #8b5cf6;
+    border-color: var(--primary);
+    box-shadow: var(--focus-ring);
 }
 
 .auth-error {
@@ -1378,6 +1379,12 @@ button:disabled {
     border-radius: 12px;
     padding: 25px;
     box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+}
+
+.comparison-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
 }
 
 .comparison-card.old-way {

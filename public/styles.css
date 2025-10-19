@@ -956,12 +956,20 @@ textarea.success:focus {
 .btn-logout {
     padding: var(--space-1) var(--space-2);
     font-size: var(--text-sm);
+    background: var(--btn-primary-bg);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
     transition: all 0.2s ease;
+    box-shadow: var(--shadow);
 }
 
 .btn-logout:hover {
+    background: var(--btn-primary-hover);
     transform: translateY(-2px);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-primary);
 }
 
 .btn-extension-link {
