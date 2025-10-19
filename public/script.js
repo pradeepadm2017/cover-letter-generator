@@ -373,6 +373,136 @@ function hideLoading() {
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('loading-message').textContent = 'Processing...';
     document.getElementById('loading-submessage').textContent = '';
+    hideProgressIndicator();
+}
+
+// Progress Indicator Functions
+function showProgressIndicator(jobCount = 0) {
+    const progressIndicator = document.getElementById('progress-indicator');
+    progressIndicator.classList.remove('hidden');
+
+    // Initialize all steps as inactive
+    const steps = document.querySelectorAll('.progress-step');
+    steps.forEach(step => {
+        step.classList.remove('active', 'completed');
+    });
+
+    // Reset progress bar
+    document.getElementById('progress-bar-fill').style.width = '0%';
+
+    // Initialize job status list if jobs provided
+    if (jobCount > 0) {
+        const jobStatusList = document.getElementById('job-status-list');
+        jobStatusList.innerHTML = '';
+
+        for (let i = 0; i < jobCount; i++) {
+            const jobItem = document.createElement('div');
+            jobItem.className = 'job-status-item pending';
+            jobItem.id = `job-status-${i}`;
+            jobItem.innerHTML = `
+                <span class="job-status-icon">⏳</span>
+                <span class="job-status-text">Job ${i + 1}: Waiting...</span>
+            `;
+            jobStatusList.appendChild(jobItem);
+        }
+    }
+
+    // Show estimated time
+    if (jobCount > 0) {
+        const estimatedSeconds = Math.max(10, jobCount * 8);
+        const minutes = Math.floor(estimatedSeconds / 60);
+        const seconds = estimatedSeconds % 60;
+        let timeText = 'Estimated time: ';
+        if (minutes > 0) {
+            timeText += `${minutes}m ${seconds}s`;
+        } else {
+            timeText += `${seconds}s`;
+        }
+        document.getElementById('progress-time-text').textContent = timeText;
+    }
+}
+
+function hideProgressIndicator() {
+    const progressIndicator = document.getElementById('progress-indicator');
+    progressIndicator.classList.add('hidden');
+
+    // Clear job status list
+    document.getElementById('job-status-list').innerHTML = '';
+    document.getElementById('progress-time-text').textContent = '';
+}
+
+function setProgressStep(stepNumber, status = 'active') {
+    // stepNumber: 1 = Preparing, 2 = Analyzing, 3 = Generating, 4 = Formatting
+    // status: 'active' or 'completed'
+
+    const steps = document.querySelectorAll('.progress-step');
+
+    if (status === 'active') {
+        // Mark previous steps as completed
+        for (let i = 0; i < stepNumber - 1; i++) {
+            steps[i].classList.remove('active');
+            steps[i].classList.add('completed');
+        }
+
+        // Mark current step as active
+        steps[stepNumber - 1].classList.remove('completed');
+        steps[stepNumber - 1].classList.add('active');
+
+        // Update progress bar (each step is 25%)
+        const progressPercent = ((stepNumber - 1) / 4) * 100;
+        document.getElementById('progress-bar-fill').style.width = `${progressPercent}%`;
+    } else if (status === 'completed') {
+        // Mark all steps up to and including this one as completed
+        for (let i = 0; i < stepNumber; i++) {
+            steps[i].classList.remove('active');
+            steps[i].classList.add('completed');
+        }
+
+        // Update progress bar
+        const progressPercent = (stepNumber / 4) * 100;
+        document.getElementById('progress-bar-fill').style.width = `${progressPercent}%`;
+    }
+}
+
+function updateJobStatus(jobIndex, status, message = '') {
+    // status: 'pending', 'processing', 'success', 'error'
+    const jobItem = document.getElementById(`job-status-${jobIndex}`);
+    if (!jobItem) return;
+
+    // Remove all status classes
+    jobItem.classList.remove('pending', 'processing', 'success', 'error');
+    jobItem.classList.add(status);
+
+    // Update icon and text based on status
+    const iconSpan = jobItem.querySelector('.job-status-icon');
+    const textSpan = jobItem.querySelector('.job-status-text');
+
+    switch (status) {
+        case 'pending':
+            iconSpan.textContent = '⏳';
+            textSpan.textContent = message || `Job ${jobIndex + 1}: Waiting...`;
+            break;
+        case 'processing':
+            iconSpan.textContent = '🔄';
+            textSpan.textContent = message || `Job ${jobIndex + 1}: Processing...`;
+            break;
+        case 'success':
+            iconSpan.textContent = '✓';
+            textSpan.textContent = message || `Job ${jobIndex + 1}: Complete!`;
+            break;
+        case 'error':
+            iconSpan.textContent = '✗';
+            textSpan.textContent = message || `Job ${jobIndex + 1}: Failed`;
+            break;
+    }
+}
+
+function completeAllProgress() {
+    // Mark all steps as completed
+    setProgressStep(4, 'completed');
+
+    // Update progress bar to 100%
+    document.getElementById('progress-bar-fill').style.width = '100%';
 }
 
 function showError(message) {
@@ -685,6 +815,10 @@ async function generateAllCoverLetters() {
     const jobCount = jobUrls.length;
     showLoading('Preparing your request...', `Processing ${jobCount} job${jobCount > 1 ? 's' : ''}...`);
 
+    // Show progress indicator with job count
+    showProgressIndicator(jobCount);
+    setProgressStep(1, 'active'); // Step 1: Preparing
+
     // Clear all URL statuses
     jobUrls.forEach((_, index) => {
         updateUrlStatus(index, '', '');
@@ -695,7 +829,15 @@ async function generateAllCoverLetters() {
 
     try {
         console.log('📡 FRONTEND: Sending fetch request to /api/generate-cover-letters');
+
+        // Step 2: Analyzing Jobs
+        setProgressStep(2, 'active');
         updateLoadingMessage('Extracting job information...', 'Analyzing job descriptions with AI...');
+
+        // Mark all jobs as processing
+        jobUrls.forEach((_, index) => {
+            updateJobStatus(index, 'processing', `Job ${index + 1}: Extracting details...`);
+        });
 
         const headers = await getAuthHeaders();
         const response = await fetch('/api/generate-cover-letters', {
@@ -708,7 +850,10 @@ async function generateAllCoverLetters() {
         });
         console.log('📡 FRONTEND: Received response:', response.status);
 
+        // Step 3: Generating Letters
+        setProgressStep(3, 'active');
         updateLoadingMessage('Generating cover letters...', 'Creating personalized content for each job...');
+
         const data = await response.json();
         console.log('📦 FRONTEND: Response data:', data);
 
@@ -725,10 +870,14 @@ async function generateAllCoverLetters() {
                     data.results.forEach((result, index) => {
                         if (result.success) {
                             updateUrlStatus(index, 'success', 'Cover letter generated successfully');
+                            updateJobStatus(index, 'success', `Job ${index + 1}: Complete!`);
                             if (result.fileData) {
                                 // Download immediately, no delay needed
                                 downloadFile(result.fileName, result.fileData);
                             }
+                        } else {
+                            // Mark remaining jobs as not processed due to limit
+                            updateJobStatus(index, 'error', `Job ${index + 1}: Limit reached`);
                         }
                     });
 
@@ -780,6 +929,10 @@ async function generateAllCoverLetters() {
             throw new Error(data.error || 'Failed to generate cover letters');
         }
 
+        // Step 4: Formatting
+        setProgressStep(4, 'active');
+        updateLoadingMessage('Preparing downloads...', 'Formatting documents...');
+
         // Display results and update URL statuses
         data.results.forEach((result, index) => {
             console.log(`📋 FRONTEND: Processing result ${index + 1}:`, result);
@@ -787,6 +940,8 @@ async function generateAllCoverLetters() {
             if (result.success) {
                 // Update URL status to success
                 updateUrlStatus(index, 'success', 'Cover letter generated successfully');
+                // Update job status to success
+                updateJobStatus(index, 'success', `Job ${index + 1}: Complete!`);
 
                 // Auto-download the file
                 if (result.fileData) {
@@ -803,6 +958,8 @@ async function generateAllCoverLetters() {
                 if (result.usedFallback) {
                     // Update URL status to fallback/warning
                     updateUrlStatus(index, 'fallback', result.fallbackReason);
+                    // Update job status to error
+                    updateJobStatus(index, 'error', `Job ${index + 1}: Failed to access`);
 
                     // Check if this is a login wall issue
                     const isLoginWall = result.fallbackReason &&
@@ -829,6 +986,8 @@ async function generateAllCoverLetters() {
                 } else {
                     // Update URL status to error
                     updateUrlStatus(index, 'error', result.error);
+                    // Update job status to error
+                    updateJobStatus(index, 'error', `Job ${index + 1}: Failed`);
 
                     coverLetterDiv.innerHTML = `
                         <h3 style="color: #dc2626;">Error for Job ${index + 1}</h3>
@@ -886,10 +1045,18 @@ async function generateAllCoverLetters() {
             showError(`${fallbackCount} URL${fallbackCount > 1 ? 's' : ''} failed - could not extract job description`);
         }
 
+        // Complete all progress steps
+        completeAllProgress();
+
+        // Hide loading after a short delay to show completed state
+        setTimeout(() => {
+            hideLoading();
+        }, 1500);
+
     } catch (error) {
         showError('Unable to generate cover letters. Please check your inputs and try again.');
-    } finally {
         hideLoading();
+    } finally {
         // Refresh usage counter after generation
         await loadUsageCounter();
     }

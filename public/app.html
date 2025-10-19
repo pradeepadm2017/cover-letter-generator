@@ -235,6 +235,46 @@ Requirements:
             <div class="spinner"></div>
             <p id="loading-message">Processing...</p>
             <p id="loading-submessage" style="font-size: 14px; color: #666; margin-top: 10px;"></p>
+
+            <!-- Progress Indicator -->
+            <div id="progress-indicator" class="progress-indicator hidden">
+                <!-- Progress Steps -->
+                <div class="progress-steps">
+                    <div class="progress-step" data-step="1">
+                        <div class="step-icon">📋</div>
+                        <div class="step-label">Preparing</div>
+                        <div class="step-status"></div>
+                    </div>
+                    <div class="progress-step" data-step="2">
+                        <div class="step-icon">🔍</div>
+                        <div class="step-label">Analyzing Jobs</div>
+                        <div class="step-status"></div>
+                    </div>
+                    <div class="progress-step" data-step="3">
+                        <div class="step-icon">✍️</div>
+                        <div class="step-label">Generating Letters</div>
+                        <div class="step-status"></div>
+                    </div>
+                    <div class="progress-step" data-step="4">
+                        <div class="step-icon">📄</div>
+                        <div class="step-label">Formatting</div>
+                        <div class="step-status"></div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                </div>
+
+                <!-- Job Status List -->
+                <div id="job-status-list" class="job-status-list"></div>
+
+                <!-- Estimated Time -->
+                <div class="progress-time">
+                    <span id="progress-time-text"></span>
+                </div>
+            </div>
         </div>
 
         <div id="error-message" class="error-message hidden"></div>
