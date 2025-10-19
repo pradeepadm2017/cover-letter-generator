@@ -53,7 +53,8 @@ const userOps = {
           id: authUser.id,
           email: authUser.email,
           subscription_tier: 'free',
-          custom_monthly_limit: null // Will use default 10
+          custom_monthly_limit: null, // Will use default 10
+          header_template: 'center' // Default to center aligned header
         })
         .select()
         .single();
