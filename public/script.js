@@ -732,13 +732,34 @@ function addJobUrl() {
         </button>
     `;
     container.appendChild(newInput);
+    updateJobUrlRemoveButtonsVisibility();
     updateGenerateButtonState();
 }
 
 function removeJobUrl(button) {
-    const jobUrlInput = button.closest('.job-url-input');
-    jobUrlInput.remove();
-    updateGenerateButtonState();
+    const container = document.getElementById('job-urls-container');
+
+    if (container.querySelectorAll('.job-url-input').length > 1) {
+        const jobUrlInput = button.closest('.job-url-input');
+        jobUrlInput.remove();
+        updateJobUrlRemoveButtonsVisibility();
+        updateGenerateButtonState();
+    }
+}
+
+// Update visibility of remove buttons on job URLs
+function updateJobUrlRemoveButtonsVisibility() {
+    const container = document.getElementById('job-urls-container');
+    const jobUrlInputs = container.querySelectorAll('.job-url-input');
+
+    jobUrlInputs.forEach((input) => {
+        const removeBtn = input.querySelector('.remove-btn');
+        if (jobUrlInputs.length === 1) {
+            removeBtn.style.display = 'none';
+        } else {
+            removeBtn.style.display = 'block';
+        }
+    });
 }
 
 function getJobUrls() {
