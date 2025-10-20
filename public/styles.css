@@ -1843,7 +1843,8 @@ textarea.success:focus {
         align-items: stretch;
     }
 
-    .job-url-input button {
+    .job-url-input .remove-btn {
+        align-self: flex-start;
         margin-top: 5px;
     }
 
