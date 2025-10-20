@@ -1988,6 +1988,12 @@ textarea.success:focus {
     body {
         padding-bottom: 80px;
     }
+
+    /* Ensure results container has proper spacing above fixed button */
+    #cover-letters-container {
+        margin-bottom: 0;
+        padding-bottom: var(--space-2);
+    }
 }
 
 /* App Footer */
