@@ -622,8 +622,10 @@ textarea.success:focus {
 .remove-btn {
     background-color: var(--error);
     color: white;
-    padding: 12px;
-    min-width: 40px;
+    padding: 8px 12px;
+    min-width: 36px;
+    font-size: 16px;
+    border-radius: 4px;
 }
 
 .remove-btn:hover {
@@ -1009,16 +1011,21 @@ textarea.success:focus {
     }
 
     .progress-steps {
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--space-3);
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--space-1);
+    }
+
+    .progress-step {
+        padding: var(--space-1);
     }
 
     .progress-step .step-icon {
-        font-size: 28px;
+        font-size: 24px;
+        margin-bottom: 4px;
     }
 
     .progress-step .step-label {
-        font-size: 11px;
+        font-size: 10px;
     }
 
     .job-status-list {
