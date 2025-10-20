@@ -1838,16 +1838,6 @@ textarea.success:focus {
         padding: 20px;
     }
 
-    .job-url-input {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .job-url-input .remove-btn {
-        align-self: flex-start;
-        margin-top: 5px;
-    }
-
     .plans-grid {
         grid-template-columns: 1fr;
     }
